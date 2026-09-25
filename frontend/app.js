@@ -1,0 +1,420 @@
+const API = "http://127.0.0.1:8000";
+let catalogos = { secciones:[], ubicaciones:[], idiomas:[], autores:[] };
+let filtroSeccionActiva = null;
+let seleccionados = new Set();
+let editandoId = null;
+
+// Función auxiliar que llama a la API y ya trae el JSON parseado, o lanza un
+// error si la respuesta no fue exitosa.
+async function api(path, opts={}) {
+  const r = await fetch(API + path, {
+    headers: {"Content-Type":"application/json"}, ...opts
+  });
+  if (!r.ok) throw new Error(await r.text());
+  if (r.status === 204) return null;
+  return r.json();
+}
+function esc(s){ return (s ?? "").toString().replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+
+// Carga inicial de catálogos
+// Trae secciones, ubicaciones, idiomas y autores una sola vez al arrancar, y
+// llena con ellos todos los <select> que los necesitan (filtros, formulario
+// del modal y barra de selección múltiple).
+async function cargarCatalogos(){
+  const [secciones, ubicaciones, idiomas, autores] = await Promise.all([
+    api("/secciones"), api("/ubicaciones"), api("/idiomas"), api("/autores")
+  ]);
+  catalogos = { secciones, ubicaciones, idiomas, autores };
+
+  llenarSelect("fSeccion", secciones, "Sección");
+  llenarSelect("fUbicacion", ubicaciones, "Ubicación");
+  llenarSelect("fIdioma", idiomas, "Idioma");
+  llenarSelect("fAutor", autores, "Autor");
+  llenarSelect("fmSeccion", secciones, "—", false);
+  llenarSelect("fmUbicacion", ubicaciones, "—", false);
+  llenarSelect("fmIdioma", idiomas, "—", false);
+  llenarSelect("bulkUbicacion", ubicaciones, "Mover a ubicación…");
+  llenarSelect("bulkSeccion", secciones, "Cambiar sección…");
+}
+function llenarSelect(id, items, placeholder){
+  const el = document.getElementById(id);
+  el.innerHTML = `<option value="">${placeholder}</option>` +
+    items.map(i => `<option value="${i.id}">${esc(i.nombre)}</option>`).join("");
+}
+
+// Resumen
+// Trae los totales de /stats/resumen y dibuja tanto el contador grande de
+// arriba como las tarjetas de sección, que además sirven de filtro al hacer
+// clic sobre ellas.
+async function cargarResumen(){
+  const r = await api("/stats/resumen");
+  document.getElementById("heroCount").innerHTML = `${r.total_fisicos}<small>Libros físicos en el cuarto</small>`;
+  document.getElementById("statKindle").textContent = r.total_kindle;
+
+  const grid = document.getElementById("shelfGrid");
+  grid.innerHTML = r.por_seccion.map(s => `
+    <button class="shelf-card ${filtroSeccionActiva===s.nombre?'active':''}" data-seccion="${esc(s.nombre)}">
+      <span class="n">${s.total}</span><span class="lbl">${esc(s.nombre)}</span>
+    </button>`).join("");
+
+  grid.querySelectorAll(".shelf-card").forEach(btn=>{
+    btn.addEventListener("click", ()=>{
+      const nombre = btn.dataset.seccion;
+      const match = catalogos.secciones.find(s=>s.nombre===nombre);
+      filtroSeccionActiva = (filtroSeccionActiva===nombre) ? null : nombre;
+      document.getElementById("fSeccion").value = filtroSeccionActiva ? match.id : "";
+      cargarInventario();
+      cargarResumen();
+    });
+  });
+}
+async function cargarStatsExtras(){
+  const [lecturas, deseos] = await Promise.all([api("/lecturas"), api("/deseos?comprado=false")]);
+  const anio = new Date().getFullYear();
+  document.getElementById("statLeidos").textContent =
+    lecturas.filter(l => l.fecha_fin && l.fecha_fin.startsWith(String(anio))).length;
+  document.getElementById("statDeseos").textContent = deseos.length;
+}
+
+// Inventario con filtros combinables
+// Arma los query params solo con los filtros que el usuario haya llenado, así
+// que cualquier combinación de ellos se aplica junta en una sola consulta.
+function paramsFiltros(){
+  const p = new URLSearchParams({ posesion:"Físico" });
+  const texto = document.getElementById("fTexto").value.trim();
+  const seccion = document.getElementById("fSeccion").value;
+  const ubicacion = document.getElementById("fUbicacion").value;
+  const idioma = document.getElementById("fIdioma").value;
+  const formato = document.getElementById("fFormato").value;
+  const autor = document.getElementById("fAutor").value;
+  if (texto) p.set("texto", texto);
+  if (seccion) p.set("seccion_id", seccion);
+  if (ubicacion) p.set("ubicacion_id", ubicacion);
+  if (idioma) p.set("idioma_id", idioma);
+  if (formato) p.set("formato", formato);
+  if (autor) p.set("autor_id", autor);
+  return p.toString();
+}
+
+async function cargarInventario(){
+  const libros = await api("/libros?" + paramsFiltros());
+  const cont = document.getElementById("listaInventario");
+  if (!libros.length){
+    cont.innerHTML = `<div class="empty">No hay libros que coincidan con estos filtros.</div>`;
+    return;
+  }
+  cont.innerHTML = libros.map(l => filaLibro(l)).join("");
+  cont.querySelectorAll("[data-check]").forEach(chk=>{
+    chk.addEventListener("change", ()=>{
+      const id = Number(chk.dataset.check);
+      chk.checked ? seleccionados.add(id) : seleccionados.delete(id);
+      actualizarBulkbar();
+    });
+  });
+  cont.querySelectorAll("[data-editar]").forEach(b=>b.addEventListener("click", ()=>abrirModal(Number(b.dataset.editar), libros)));
+  cont.querySelectorAll("[data-eliminar]").forEach(b=>b.addEventListener("click", ()=>eliminarLibro(Number(b.dataset.eliminar))));
+}
+function filaLibro(l){
+  const autores = (l.autores||[]).map(a=>a.nombre).join(", ") || "Autor desconocido";
+  return `
+  <div class="book-row">
+    <input type="checkbox" data-check="${l.id}" ${seleccionados.has(l.id)?"checked":""}>
+    <div class="spine"></div>
+    <div>
+      <div class="titulo">${esc(l.titulo)}</div>
+      <div class="autores">${esc(autores)}</div>
+    </div>
+    <div class="meta">${esc(l.seccion?.nombre || "—")}</div>
+    <div class="meta">${esc(l.ubicacion?.nombre || "—")}</div>
+    <div class="meta">${esc(l.formato || "—")}</div>
+    <div class="meta">${esc(l.idioma?.nombre || "—")}</div>
+    <div class="actions">
+      <button class="icon-btn" data-editar="${l.id}">Editar</button>
+      <button class="icon-btn" data-eliminar="${l.id}">Eliminar</button>
+    </div>
+  </div>`;
+}
+
+// Selección múltiple
+// Guarda los ids marcados en un Set y muestra/oculta la barra de acciones en
+// lote según si hay algo seleccionado.
+function actualizarBulkbar(){
+  const bar = document.getElementById("bulkbar");
+  document.getElementById("bulkCount").textContent = `${seleccionados.size} seleccionados`;
+  bar.classList.toggle("show", seleccionados.size > 0);
+}
+document.getElementById("bulkCancelar").addEventListener("click", ()=>{
+  seleccionados.clear(); actualizarBulkbar(); cargarInventario();
+});
+document.getElementById("bulkEliminar").addEventListener("click", async ()=>{
+  if (!seleccionados.size) return;
+  if (!confirm(`¿Eliminar ${seleccionados.size} libro(s)? Esta acción no se puede deshacer.`)) return;
+  await api("/libros/lote/eliminar", { method:"POST", body: JSON.stringify([...seleccionados]) });
+  seleccionados.clear(); actualizarBulkbar();
+  await refrescarTodo();
+});
+document.getElementById("bulkUbicacion").addEventListener("change", async (e)=>{
+  if (!e.target.value || !seleccionados.size) return;
+  await api(`/libros/lote/mover?campo=ubicacion_id&valor=${e.target.value}`, {
+    method:"POST", body: JSON.stringify([...seleccionados])
+  });
+  e.target.value=""; seleccionados.clear(); actualizarBulkbar();
+  await refrescarTodo();
+});
+document.getElementById("bulkSeccion").addEventListener("change", async (e)=>{
+  if (!e.target.value || !seleccionados.size) return;
+  await api(`/libros/lote/mover?campo=seccion_id&valor=${e.target.value}`, {
+    method:"POST", body: JSON.stringify([...seleccionados])
+  });
+  e.target.value=""; seleccionados.clear(); actualizarBulkbar();
+  await refrescarTodo();
+});
+
+// Filtros: eventos
+// Cualquier cambio en un filtro vuelve a pedir el inventario de inmediato,
+// así que no hace falta un botón de "buscar".
+["fTexto","fSeccion","fUbicacion","fIdioma","fFormato","fAutor"].forEach(id=>{
+  document.getElementById(id).addEventListener("input", cargarInventario);
+  document.getElementById(id).addEventListener("change", cargarInventario);
+});
+document.getElementById("btnLimpiar").addEventListener("click", ()=>{
+  ["fTexto","fSeccion","fUbicacion","fIdioma","fFormato","fAutor"].forEach(id=>document.getElementById(id).value="");
+  filtroSeccionActiva = null;
+  cargarInventario(); cargarResumen();
+});
+
+// Modal para agregar o editar un libro
+function limpiarModal(){
+  ["fmIsbn","fmTitulo","fmAutores","fmEditorial","fmAnio","fmPaginas","fmNotas"].forEach(id=>document.getElementById(id).value="");
+  document.getElementById("fmPosesion").value = "Físico";
+  document.getElementById("fmFormato").value = "";
+  document.getElementById("fmSeccion").value = "";
+  document.getElementById("fmUbicacion").value = "";
+  document.getElementById("fmIdioma").value = "";
+  document.getElementById("fmCondicion").value = "";
+  document.getElementById("isbnStatus").textContent = "";
+  cerrarScanner();
+  editandoId = null;
+}
+document.getElementById("btnNuevo").addEventListener("click", ()=>{
+  limpiarModal();
+  document.getElementById("modalTitulo").textContent = "Agregar libro";
+  document.getElementById("modalLibro").classList.add("show");
+});
+document.getElementById("btnCancelarModal").addEventListener("click", ()=>{
+  document.getElementById("modalLibro").classList.remove("show");
+});
+
+function abrirModal(id, listaActual){
+  const l = listaActual.find(x=>x.id===id);
+  if (!l) return;
+  limpiarModal();
+  editandoId = id;
+  document.getElementById("modalTitulo").textContent = "Editar libro";
+  document.getElementById("fmTitulo").value = l.titulo || "";
+  document.getElementById("fmAutores").value = (l.autores||[]).map(a=>a.nombre).join(", ");
+  document.getElementById("fmEditorial").value = l.editorial?.nombre || "";
+  document.getElementById("fmPosesion").value = l.posesion || "Físico";
+  document.getElementById("fmFormato").value = l.formato || "";
+  document.getElementById("fmSeccion").value = l.seccion_id || "";
+  document.getElementById("fmUbicacion").value = l.ubicacion_id || "";
+  document.getElementById("fmIdioma").value = l.idioma_id || "";
+  document.getElementById("fmCondicion").value = l.condicion || "";
+  document.getElementById("fmAnio").value = l.anio_publicacion || "";
+  document.getElementById("fmPaginas").value = l.paginas || "";
+  document.getElementById("fmNotas").value = l.notas || "";
+  document.getElementById("fmIsbn").value = l.isbn || "";
+  document.getElementById("modalLibro").classList.add("show");
+}
+
+document.getElementById("btnBuscarIsbn").addEventListener("click", async ()=>{
+  const isbn = document.getElementById("fmIsbn").value.trim();
+  const status = document.getElementById("isbnStatus");
+  if (!isbn){ status.textContent = "Escribe o escanea un ISBN primero."; return; }
+  status.textContent = "Buscando…";
+  try{
+    const d = await api("/isbn/" + encodeURIComponent(isbn));
+    if (!d.encontrado){ status.textContent = "No se encontró ese ISBN. Llena los datos a mano."; return; }
+    if (d.titulo) document.getElementById("fmTitulo").value = d.titulo;
+    if (d.autores?.length) document.getElementById("fmAutores").value = d.autores.join(", ");
+    if (d.editorial) document.getElementById("fmEditorial").value = d.editorial;
+    if (d.anio_publicacion) document.getElementById("fmAnio").value = d.anio_publicacion;
+    if (d.paginas) document.getElementById("fmPaginas").value = d.paginas;
+    status.textContent = "Datos completados. Revisa antes de guardar.";
+  } catch(e){ status.textContent = "Error al consultar el ISBN."; }
+});
+
+// Escáner de código de barras con la cámara
+// Usa html5-qrcode para leer EAN-13/EAN-8/UPC. En cuanto detecta un código,
+// cierra la cámara, lo mete al campo ISBN y dispara el autocompletado solo.
+let scanner = null;
+const FORMATOS_BARRAS = (typeof Html5QrcodeSupportedFormats !== "undefined") ? [
+  Html5QrcodeSupportedFormats.EAN_13, Html5QrcodeSupportedFormats.EAN_8,
+  Html5QrcodeSupportedFormats.UPC_A, Html5QrcodeSupportedFormats.UPC_E,
+  Html5QrcodeSupportedFormats.CODE_128,
+] : undefined;
+
+async function iniciarScanner(){
+  const status = document.getElementById("isbnStatus");
+  if (typeof Html5Qrcode === "undefined"){
+    status.textContent = "No se pudo cargar el lector de cámara (sin conexión a internet).";
+    return;
+  }
+  document.getElementById("scannerWrap").classList.add("show");
+  scanner = new Html5Qrcode("scannerView", { formatsToSupport: FORMATOS_BARRAS, verbose:false });
+  try{
+    await scanner.start(
+      { facingMode: "environment" },
+      { fps: 10, qrbox: { width: 260, height: 140 } },
+      (textoDetectado) => onCodigoDetectado(textoDetectado),
+      () => {} // ignora fotogramas sin lectura, no hace falta hacer nada aquí
+    );
+  } catch(e){
+    status.textContent = "No se pudo abrir la cámara. Revisa los permisos del navegador.";
+    cerrarScanner();
+  }
+}
+async function cerrarScanner(){
+  document.getElementById("scannerWrap").classList.remove("show");
+  if (scanner){
+    try{ await scanner.stop(); await scanner.clear(); } catch(e){}
+    scanner = null;
+  }
+}
+async function onCodigoDetectado(codigo){
+  const limpio = codigo.replace(/[^0-9Xx]/g, "");
+  document.getElementById("fmIsbn").value = limpio;
+  await cerrarScanner();
+  document.getElementById("btnBuscarIsbn").click();
+}
+document.getElementById("btnEscanear").addEventListener("click", iniciarScanner);
+document.getElementById("btnCerrarScanner").addEventListener("click", cerrarScanner);
+document.getElementById("btnCancelarModal").addEventListener("click", cerrarScanner);
+
+// Resuelve los nombres de autor escritos en el formulario a sus ids reales;
+// si un autor no existe todavía, lo crea en el catálogo antes de continuar.
+async function idsAutoresPorNombre(texto){
+  const nombres = texto.split(",").map(s=>s.trim()).filter(Boolean);
+  const ids = [];
+  for (const nombre of nombres){
+    let autor = catalogos.autores.find(a=>a.nombre.toLowerCase()===nombre.toLowerCase());
+    if (!autor){
+      autor = await api("/autores?nombre=" + encodeURIComponent(nombre), { method:"POST" });
+      catalogos.autores.push(autor);
+    }
+    ids.push(autor.id);
+  }
+  return ids;
+}
+
+document.getElementById("btnGuardarLibro").addEventListener("click", async ()=>{
+  const titulo = document.getElementById("fmTitulo").value.trim();
+  if (!titulo){ alert("El título es obligatorio."); return; }
+
+  const payload = {
+    titulo,
+    isbn: document.getElementById("fmIsbn").value.trim() || null,
+    posesion: document.getElementById("fmPosesion").value,
+    formato: document.getElementById("fmFormato").value || null,
+    seccion_id: Number(document.getElementById("fmSeccion").value) || null,
+    ubicacion_id: Number(document.getElementById("fmUbicacion").value) || null,
+    idioma_id: Number(document.getElementById("fmIdioma").value) || null,
+    condicion: document.getElementById("fmCondicion").value || null,
+    anio_publicacion: Number(document.getElementById("fmAnio").value) || null,
+    paginas: Number(document.getElementById("fmPaginas").value) || null,
+    notas: document.getElementById("fmNotas").value.trim() || null,
+    autor_ids: await idsAutoresPorNombre(document.getElementById("fmAutores").value),
+  };
+
+  if (editandoId){
+    await api(`/libros/${editandoId}`, { method:"PATCH", body: JSON.stringify(payload) });
+  } else {
+    await api("/libros", { method:"POST", body: JSON.stringify(payload) });
+  }
+  document.getElementById("modalLibro").classList.remove("show");
+  await cargarCatalogos();
+  await refrescarTodo();
+});
+
+async function eliminarLibro(id){
+  if (!confirm("¿Eliminar este libro de tu inventario?")) return;
+  await api(`/libros/${id}`, { method:"DELETE" });
+  await refrescarTodo();
+}
+
+// Pestañas
+// Alterna qué sección se muestra y solo carga los datos de Leídos o Por
+// comprar la primera vez que el usuario entra a esa pestaña.
+document.querySelectorAll(".tab").forEach(tab=>{
+  tab.addEventListener("click", ()=>{
+    document.querySelectorAll(".tab").forEach(t=>t.classList.remove("active"));
+    tab.classList.add("active");
+    const destino = tab.dataset.tab;
+    document.getElementById("toolbar").style.display = destino==="inventario" ? "flex" : "none";
+    document.getElementById("listaInventario").style.display = destino==="inventario" ? "block" : "none";
+    document.getElementById("listaLeidos").style.display = destino==="leidos" ? "block" : "none";
+    document.getElementById("listaDeseos").style.display = destino==="deseos" ? "block" : "none";
+    if (destino === "leidos") cargarLeidos();
+    if (destino === "deseos") cargarDeseos();
+  });
+});
+
+// Leídos
+async function cargarLeidos(){
+  const lecturas = await api("/lecturas");
+  const cont = document.getElementById("listaLeidos");
+  if (!lecturas.length){ cont.innerHTML = `<div class="empty">Aún no registras lecturas este año.</div>`; return; }
+  cont.innerHTML = lecturas.map(l => `
+    <div class="book-row" style="grid-template-columns:5px 1fr 140px 110px auto;">
+      <div class="spine" style="background:var(--sage)"></div>
+      <div>
+        <div class="titulo">${esc(l.libro?.titulo || "Libro #"+l.libro_id)}</div>
+        <div class="autores">${esc((l.libro?.autores||[]).map(a=>a.nombre).join(", "))}</div>
+      </div>
+      <div class="meta">${l.fecha_fin || "—"}</div>
+      <div class="meta">${l.calificacion ? "★".repeat(l.calificacion) : "—"}</div>
+      <div class="actions"><button class="icon-btn" data-del-lectura="${l.id}">Eliminar</button></div>
+    </div>`).join("");
+  cont.querySelectorAll("[data-del-lectura]").forEach(b=>b.addEventListener("click", async ()=>{
+    await api(`/lecturas/${b.dataset.delLectura}`, { method:"DELETE" });
+    cargarLeidos(); cargarStatsExtras();
+  }));
+}
+
+// Por comprar
+async function cargarDeseos(){
+  const deseos = await api("/deseos?comprado=false");
+  const cont = document.getElementById("listaDeseos");
+  if (!deseos.length){ cont.innerHTML = `<div class="empty">Tu lista de compras está vacía.</div>`; return; }
+  cont.innerHTML = deseos.map(d => `
+    <div class="book-row" style="grid-template-columns:5px 1fr 90px 100px auto;">
+      <div class="spine" style="background:var(--burgundy)"></div>
+      <div>
+        <div class="titulo">${esc(d.titulo || "Libro #"+d.libro_id)}</div>
+        <div class="autores">${esc(d.autor_texto || "")}</div>
+      </div>
+      <div class="meta">${esc(d.prioridad)}</div>
+      <div class="meta">${d.precio_estimado ? "$"+d.precio_estimado : "—"}</div>
+      <div class="actions"><button class="icon-btn" data-del-deseo="${d.id}">Eliminar</button></div>
+    </div>`).join("");
+  cont.querySelectorAll("[data-del-deseo]").forEach(b=>b.addEventListener("click", async ()=>{
+    await api(`/deseos/${b.dataset.delDeseo}`, { method:"DELETE" });
+    cargarDeseos(); cargarStatsExtras();
+  }));
+}
+
+// Arranque
+// Carga catálogos e inventario en cuanto la página abre; si la API no está
+// corriendo, lo avisa en vez de dejar la pantalla en blanco.
+async function refrescarTodo(){
+  await Promise.all([cargarInventario(), cargarResumen(), cargarStatsExtras()]);
+}
+(async function init(){
+  try{
+    await cargarCatalogos();
+    await refrescarTodo();
+  } catch(e){
+    document.getElementById("listaInventario").innerHTML =
+      `<div class="empty">No se pudo conectar con la API en ${API}.<br>Verifica que esté corriendo (uvicorn app.main:app --reload).</div>`;
+  }
+})();

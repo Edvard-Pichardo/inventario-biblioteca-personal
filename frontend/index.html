@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Biblioteca de Edvard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html5-qrcode/2.3.8/html5-qrcode.min.js"></script>
+</head>
+<body>
+
+<header class="hero">
+  <div class="hero-count" id="heroCount">0<small>Libros físicos</small></div>
+  <div class="hero-mini">
+    <div class="stat"><b id="statKindle">0</b><span>En digitales</span></div>
+    <div class="stat"><b id="statLeidos">0</b><span>Leídos este año</span></div>
+    <div class="stat"><b id="statDeseos">0</b><span>En lista de compras</span></div>
+  </div>
+</header>
+
+<section class="shelves">
+  <h2>Secciones</h2>
+  <div class="shelf-grid" id="shelfGrid"></div>
+</section>
+
+<div class="tabs">
+  <div class="tab active" data-tab="inventario">Inventario</div>
+  <div class="tab" data-tab="leidos">Leídos</div>
+  <div class="tab" data-tab="deseos">Por comprar</div>
+</div>
+
+<div class="toolbar" id="toolbar">
+  <input type="text" id="fTexto" placeholder="Buscar por título…">
+  <select id="fSeccion"><option value="">Sección</option></select>
+  <select id="fUbicacion"><option value="">Ubicación</option></select>
+  <select id="fIdioma"><option value="">Idioma</option></select>
+  <select id="fFormato">
+    <option value="">Formato</option>
+    <option value="Pasta blanda">Pasta blanda</option>
+    <option value="Pasta dura">Pasta dura (HC)</option>
+  </select>
+  <select id="fAutor"><option value="">Autor</option></select>
+  <button class="btn secondary" id="btnLimpiar">Limpiar filtros</button>
+  <button class="btn" id="btnNuevo">+ Agregar libro</button>
+</div>
+
+<main>
+  <div id="listaInventario"></div>
+  <div id="listaLeidos" style="display:none"></div>
+  <div id="listaDeseos" style="display:none"></div>
+
+  <div class="bulkbar" id="bulkbar">
+    <span id="bulkCount">0 seleccionados</span>
+    <select id="bulkUbicacion"><option value="">Mover a ubicación…</option></select>
+    <select id="bulkSeccion"><option value="">Cambiar sección…</option></select>
+    <button class="btn danger" id="bulkEliminar">Eliminar seleccionados</button>
+    <button class="btn secondary" id="bulkCancelar">Cancelar</button>
+  </div>
+</main>
+
+<!-- Modal: agregar/editar libro -->
+<div class="modal-bg" id="modalLibro">
+  <div class="modal">
+    <h3 id="modalTitulo">Agregar libro</h3>
+
+    <div class="field isbn-row">
+      <input type="text" id="fmIsbn" placeholder="Escanea o escribe el ISBN">
+      <button class="btn secondary" id="btnBuscarIsbn" type="button">Autocompletar</button>
+      <button class="btn secondary" id="btnEscanear" type="button">📷 Escanear</button>
+    </div>
+    <div class="scanner-wrap" id="scannerWrap">
+      <div id="scannerView"></div>
+      <div class="scanner-hint">Apunta la cámara al código de barras de la contraportada.</div>
+      <button class="btn secondary scanner-close" id="btnCerrarScanner" type="button">Cerrar cámara</button>
+    </div>
+    <div class="status-msg" id="isbnStatus"></div>
+
+    <div class="field"><label>Título *</label><input type="text" id="fmTitulo"></div>
+
+    <div class="field-row">
+      <div class="field"><label>Autor(es), separados por coma</label><input type="text" id="fmAutores"></div>
+      <div class="field"><label>Editorial</label><input type="text" id="fmEditorial"></div>
+    </div>
+
+    <div class="field-row">
+      <div class="field"><label>Posesión</label>
+        <select id="fmPosesion"><option value="Físico">Físico</option><option value="Kindle">Kindle</option></select>
+      </div>
+      <div class="field"><label>Formato</label>
+        <select id="fmFormato"><option value="">—</option><option value="Pasta blanda">Pasta blanda</option><option value="Pasta dura">Pasta dura (HC)</option></select>
+      </div>
+    </div>
+
+    <div class="field-row">
+      <div class="field"><label>Sección</label><select id="fmSeccion"></select></div>
+      <div class="field"><label>Ubicación</label><select id="fmUbicacion"></select></div>
+    </div>
+
+    <div class="field-row">
+      <div class="field"><label>Idioma</label><select id="fmIdioma"></select></div>
+      <div class="field"><label>Condición</label>
+        <select id="fmCondicion"><option value="">—</option><option>Nuevo</option><option>Bueno</option><option>Regular</option><option>Desgastado</option></select>
+      </div>
+    </div>
+
+    <div class="field-row">
+      <div class="field"><label>Año de publicación</label><input type="number" id="fmAnio"></div>
+      <div class="field"><label>Páginas</label><input type="number" id="fmPaginas"></div>
+    </div>
+
+    <div class="field"><label>Notas</label><textarea id="fmNotas"></textarea></div>
+
+    <div class="modal-actions">
+      <button class="btn secondary" id="btnCancelarModal">Cancelar</button>
+      <button class="btn" id="btnGuardarLibro">Guardar</button>
+    </div>
+  </div>
+</div>
+
+<script src="app.js"></script>
+</body>
+</html>
