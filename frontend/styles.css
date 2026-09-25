@@ -40,7 +40,7 @@ a{color:inherit;}
 /* Encabezado */
 header.hero{
   position:relative; /* necesario para anclar el botón del tema */
-  padding:56px 40px 40px; border-bottom:1px solid var(--ink-700);
+  padding:70px 40px 40px; border-bottom:1px solid var(--ink-700);
   display:flex; justify-content:space-between; align-items:flex-end; gap:32px; flex-wrap:wrap;
 }
 .hero-count{font-family:var(--serif); font-weight:600; font-size:clamp(56px,9vw,104px); line-height:0.95;}
@@ -246,7 +246,55 @@ main{padding:20px 40px 60px;}
   color: var(--brass);
 }
 
-/* En móvil, un poco menos de aire */
+/* Saludo personalizado (arriba a la izquierda del hero) */
+.welcome-badge{
+  position:absolute;
+  top:20px; left:20px;
+  height:42px;
+  display:inline-flex;
+  align-items:center;
+  gap:8px;
+  padding:0 16px;
+  background:transparent;;
+  border:1px solid transparent;
+  border-radius:21px;
+  color:var(--brass);                
+  font-family:var(--sans);
+  font-size:13.5px;
+  cursor:pointer;
+  z-index:2;
+  transition:background-color .2s, border-color .2s, color .2s;
+}
+.welcome-badge:hover{
+  border-color:var(--brass-dim);
+}
+/* El nombre dentro del <b> se queda en blanco roto */
+.welcome-badge b{
+  font-weight:600;
+  color:var(--parchment);            
+}
+.welcome-edit{
+  color:var(--brass);
+  font-size:11px;
+  opacity:0;                          /* aparece solo al pasar el ratón */
+  transition:opacity .2s;
+}
+.welcome-badge:hover .welcome-edit,
+.welcome-badge:focus-visible .welcome-edit{
+  opacity:1;
+}
+.welcome-badge:focus-visible{
+  outline:2px solid var(--brass);
+  outline-offset:2px;
+}
+
+/* En móvil: un poco más compacto y el lápiz siempre visible (no hay hover) */
 @media (max-width:760px){
-  .quote-band{ padding-left: 18px; padding-right: 18px; }
+  .welcome-badge{
+    top:16px; left:18px;
+    height:38px;
+    padding:0 12px;
+    font-size:12.5px;
+  }
+  .welcome-edit{opacity:1;}
 }

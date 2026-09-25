@@ -102,6 +102,72 @@ const FRASES = [
   { texto: "Los libros son como semillas.", autor: "Carl Sagan" },
 
 
+  // JULIO CORTÁZAR
+  { texto: "Cuando uno quiere escribir, escribe. Si uno está condenado a escribir, escribe. La literatura es una forma de juego por el que uno puede llegar a jugarse la vida.", autor: "Julio Cortázar" },
+  { texto: "Entre nosotros escribir y leer es cada vez más una posibilidad de actuar extraliterariamente, aunque la mayoría de nuestros libros más significativos no contengan mensajes expresos.", autor: "Julio Cortázar" },
+  { texto: "Nadie puede pretender que los cuentos sólo deban escribirse luego de conocer sus leyes… no hay tales leyes; a lo sumo cabe hablar de puntos de vista, de ciertas constantes que dan una estructura a ese género tan poco encasillable.", autor: "Julio Cortázar" },
+  { texto: "El cuento es una síntesis viviente a la vez que una vida sintetizada, algo así como un temblor de agua dentro de un cristal, una fugacidad en una permanencia.", autor: "Julio Cortázar" },
+  { texto: "Un buen cuento es incisivo, mordiente, sin cuartel desde las primeras frases.", autor: "Julio Cortázar" },
+  { texto: "Un cuento es significativo cuando quiebra sus propios límites con esa explosión de energía espiritual que ilumina bruscamente algo que va mucho más allá de la pequeña y a veces miserable anécdota que cuenta.", autor: "Julio Cortázar" },
+  { texto: "No hay otra manera de que un cuento sea eficaz, haga blanco en el lector y se clave en su memoria.", autor: "Julio Cortázar" },
+  { texto: "Hay jirones, impulsos, bloques, y todo busca una forma, entonces entra en juego el ritmo y yo escribo dentro de ese ritmo, escribo por él, movido por él.", autor: "Julio Cortázar" },
+  { texto: "El verdadero y único personaje que me interesa es el lector, en la medida en que algo de lo que escribo debería contribuir a mutarlo.", autor: "Julio Cortázar" },
+  { texto: "La fantasía es el arma más poderosa de un escritor y la que le abre las puertas de una realidad más vasta.", autor: "Julio Cortázar" },
+  { texto: "Escribir para lectores sin calificarlos. Una novela es un problema; el cuento no lo es nunca.", autor: "Julio Cortázar" },
+
+
+  // GABRIEL GARCÍA MÁRQUEZ
+  { texto: "Cuando quiero escribir algo es porque siento que eso merece ser contado. Más aún, cuando escribo un cuento es porque a mí me gustaría leerlo.", autor: "Gabriel García Márquez" },
+  { texto: "La literatura no se aprende en la universidad, sino leyendo y leyendo a los otros escritores.", autor: "Gabriel García Márquez" },
+  { texto: "Salvo que sea un genio excepcional que aparezca de pronto, no se puede hacer buena literatura si no se conoce toda la literatura. Hay una tendencia a menospreciar la cultura literaria, a creer en el espontaneísmo. La verdad es que la literatura es una ciencia que hay que aprender.", autor: "Gabriel García Márquez" },
+  { texto: "Si bien la literatura es un producto social, el trabajo literario es absolutamente individual y es, además, el trabajo más solitario del mundo. Nadie te puede ayudar a escribir lo que estás escribiendo.", autor: "Gabriel García Márquez" },
+  { texto: "Una página en blanco es como un ring de boxeo, en el cual uno se cae a golpes con las palabras.", autor: "Gabriel García Márquez" },
+  { texto: "Los libros hay que desatornillarlos y desbaratarlos, a fin de desentrañar lo que llevan por dentro.", autor: "Gabriel García Márquez" },
+  { texto: "El deber revolucionario de un escritor es escribir bien.", autor: "Gabriel García Márquez" },
+  { texto: "El primer párrafo de una novela, cuento etc., es el más importante. Un buen truco es escribir el principio y el final; después se rellena.", autor: "Gabriel García Márquez" },
+  { texto: "Hay que ser valientes para romper un cuento si éste no fragua desde el principio. Es más saludable empezarlo de nuevo por otro camino o tirarlo a la basura.", autor: "Gabriel García Márquez" },
+  { texto: "El esfuerzo de escribir un cuento corto es tan intenso como empezar una novela. En el primer párrafo de una novela hay que definirlo todo: estructura, tono, estilo, ritmo, longitud.", autor: "Gabriel García Márquez" },
+  { texto: "Hay que ser valientes para romper un cuento si éste no fragua desde el principio.", autor: "Gabriel García Márquez" },
+  { texto: "El periodismo impone la necesidad de formarse una base cultural y hace de la lectura una adicción laboral.", autor: "Gabriel García Márquez" },
+
+
+  // FRANZ KAFKA
+  { texto: "Pienso que sólo debemos leer libros de los que muerden y pinchan. Si el libro que estamos leyendo no nos obliga a despertarnos como un puñetazo en la cara, ¿para qué molestarnos en leerlo?", autor: "Franz Kafka" },
+  { texto: "Un libro debe ser el hacha que rompa el mar helado dentro de nosotros.", autor: "Franz Kafka" },
+  { texto: "Un libro ha de ser un hacha para clavarla en el mar congelado que hay dentro de nosotros.", autor: "Franz Kafka" },
+  { texto: "Necesitamos libros que surtan sobre nosotros el efecto de una desgracia muy dolorosa, como la muerte de alguien al que queríamos más que a nosotros.", autor: "Franz Kafka" },
+  { texto: "El arte tiene más necesidad de la artesanía, que la artesanía del arte.", autor: "Franz Kafka" },
+  { texto: "Escribir es una forma de oración.", autor: "Franz Kafka" },
+  { texto: "Escribir cartas significa desnudarse ante los fantasmas, que lo esperan ávidamente.", autor: "Franz Kafka" },
+  { texto: "Es bueno que la conciencia reciba amplias heridas, puesto que así se vuelve más sensible a cada mordedura.", autor: "Franz Kafka" },
+  { texto: "La literatura es un juez perverso que decide quién se queda y quién se va, qué frase sirve y cuál no.", autor: "Franz Kafka" },
+  { texto: "Yo estaba rígido y frío, era un puente tendido sobre un abismo.", autor: "Franz Kafka" },
+
+
+  // H.P. LOVECRAFT
+  // --- Sobre la lectura y la escritura ---
+  { texto: "Todos los intentos de ganar pulido literario deben comenzar con una lectura juiciosa, y el aprendiz nunca debe dejar de mantener esta fase en lo más alto.", autor: "H.P. Lovecraft" },
+  { texto: "Ningún aspirante a autor debería contentarse con una mera adquisición de reglas técnicas. Una página de Addison o de Irving enseñará más de estilo que un manual entero de reglas.", autor: "H.P. Lovecraft" },
+  { texto: "No hay curso formal de escritura de ficción que pueda igualar una lectura cercana y observadora de los cuentos de Edgar Allan Poe o Ambrose Bierce.", autor: "H.P. Lovecraft" },
+  { texto: "Nunca expliques nada.", autor: "H.P. Lovecraft" },
+  { texto: "Los horrores, creo, deben ser originales; el uso de mitos y leyendas comunes es una influencia debilitante.", autor: "H.P. Lovecraft" },
+  { texto: "No se puede ser demasiado cuidadoso en la selección de adjetivos para las descripciones.", autor: "H.P. Lovecraft" },
+  { texto: "La emoción más antigua y más intensa de la humanidad es el miedo, y el miedo más antiguo y más intenso de los miedos es el miedo a lo desconocido.", autor: "H.P. Lovecraft" },
+  { texto: "No podría vivir una semana sin una biblioteca privada; de hecho, me desprendería de todos mis muebles y dormiría en el suelo antes que dejar ir los 1.500 libros que poseo.", autor: "H.P. Lovecraft" },
+  { texto: "Las mentes creativas son desiguales, y los mejores tejidos tienen sus puntos opacos.", autor: "H.P. Lovecraft" },
+  // --- Consejos técnicos de "Notas sobre el arte de escribir cuentos fantásticos" ---
+  { texto: "Preparar una sinopsis o escenario de acontecimientos en orden de su aparición; no en el de la narración.", autor: "H.P. Lovecraft" },
+  { texto: "Escribir la historia rápidamente y con fluidez, sin ser demasiado crítico, siguiendo el orden narrativo de la sinopsis.", autor: "H.P. Lovecraft" },
+  { texto: "Hacer una revisión exhaustiva, centrándose en el vocabulario, el ritmo de la prosa, la aliteración y la elección de cada palabra por su efecto preciso, como se haría en poesía.", autor: "H.P. Lovecraft" },
+  { texto: "Hay que eliminar todo lo que pueda resultar superfluo: palabras, frases, párrafos y elementos o episodios enteros.", autor: "H.P. Lovecraft" },
+  { texto: "Es preciso evitar los simples catálogos de sucesos increíbles, los cuales puede que no tengan, en el fondo, más significado aparte de una continua nube de color y simbolismo.", autor: "H.P. Lovecraft" },
+  // --- Sobre el oficio y la visión del escritor ---
+  { texto: "La razón por la cual escribo cuentos fantásticos es porque me producen una satisfacción personal y me acercan a la vaga, escurridiza, fragmentaria sensación de lo maravilloso.", autor: "H.P. Lovecraft" },
+  { texto: "Uno de mis anhelos más fuertes es el de lograr la suspensión o violación momentánea de las irritantes limitaciones del tiempo, del espacio y de las leyes naturales que nos rigen.", autor: "H.P. Lovecraft" },
+  { texto: "El conflicto con el tiempo es el tema más poderoso y prolífico de toda expresión humana.", autor: "H.P. Lovecraft" },
+  { texto: "Siempre existirá un número determinado de personas que tenga gran curiosidad por el desconocido espacio exterior, y un deseo ardiente por escapar de la morada-prisión de lo conocido.", autor: "H.P. Lovecraft" },
+
+
   // CLÁSICOS DE LA LITERATURA
   { texto: "La diferencia entre la palabra casi correcta y la palabra correcta es la diferencia entre la luciérnaga y el relámpago.", autor: "Mark Twain" },
   { texto: "En cuanto al adjetivo: cuando dudes, táchalo.", autor: "Mark Twain" },

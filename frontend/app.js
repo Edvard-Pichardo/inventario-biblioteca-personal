@@ -464,3 +464,28 @@ async function refrescarTodo(){
   elTexto.textContent = frase.texto;
   elAutor.textContent = "— " + frase.autor;
 })();
+
+// Saludo personalizado
+(function(){
+  const CLAVE = 'nombreUsuario';
+  const POR_DEFECTO = 'Edvard Pichardo';
+
+  const badge = document.getElementById('welcomeBadge');
+  const nombreEl = document.getElementById('welcomeName');
+  if (!badge || !nombreEl) return;
+
+  // Cargar nombre guardado (o el de por defecto)
+  let nombre = localStorage.getItem(CLAVE) || POR_DEFECTO;
+  nombreEl.textContent = nombre;
+
+  // Editar al hacer clic
+  badge.addEventListener('click', () => {
+    const nuevo = prompt('¿Cómo te llamas?', nombre);
+    if (nuevo === null) return;          // canceló
+    const limpio = nuevo.trim();
+    if (!limpio) return;                 // vacío, no cambiamos nada
+    nombre = limpio;
+    localStorage.setItem(CLAVE, nombre);
+    nombreEl.textContent = nombre;
+  });
+})();
