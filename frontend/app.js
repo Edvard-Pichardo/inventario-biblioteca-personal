@@ -418,3 +418,49 @@ async function refrescarTodo(){
       `<div class="empty">No se pudo conectar con la API en ${API}.<br>Verifica que esté corriendo (uvicorn app.main:app --reload).</div>`;
   }
 })();
+
+// Lógica del Cambio de Tema
+(function() {
+  const themeToggle = document.getElementById('theme-toggle');
+  const htmlElement = document.documentElement;
+  const currentTheme = localStorage.getItem('theme');
+
+  // Aplicar el tema guardado o la preferencia del sistema
+  if (currentTheme) {
+    htmlElement.setAttribute('data-theme', currentTheme);
+  } else if (window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches) {
+    htmlElement.setAttribute('data-theme', 'light');
+  } else {
+    htmlElement.setAttribute('data-theme', 'dark'); // Por defecto
+  }
+
+  // Función para actualizar el icono del botón
+  function updateToggleIcon(theme) {
+    themeToggle.innerHTML = theme === 'light' ? '🌙' : '☀️';
+  }
+  updateToggleIcon(htmlElement.getAttribute('data-theme'));
+
+  // Manejador del clic
+  themeToggle.addEventListener('click', () => {
+    const newTheme = htmlElement.getAttribute('data-theme') === 'light' ? 'dark' : 'light';
+    htmlElement.setAttribute('data-theme', newTheme);
+    localStorage.setItem('theme', newTheme); // Guardar preferencia
+    updateToggleIcon(newTheme);
+  });
+})();
+
+// Frase del día
+(function(){
+  const elTexto = document.getElementById("dailyQuote");
+  const elAutor = document.getElementById("dailyQuoteAuthor");
+  if (!elTexto || !elAutor) return;
+
+  // Semilla basada en el día del año → misma frase durante todo el día
+  const ahora = new Date();
+  const inicio = new Date(ahora.getFullYear(), 0, 0);
+  const dia = Math.floor((ahora - inicio) / 86400000);
+  const frase = FRASES[Math.floor(Math.random() * FRASES.length)];
+
+  elTexto.textContent = frase.texto;
+  elAutor.textContent = "— " + frase.autor;
+})();

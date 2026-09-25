@@ -1,26 +1,45 @@
 :root{
-  --ink-900:#14201A;
-  --ink-800:#1C2C23;
-  --ink-700:#24362A;
-  --parchment:#EDE6D3;
-  --parchment-dim:#B9C1AF;
-  --brass:#C6A15B;
-  --brass-dim:#8E7440;
-  --burgundy:#9A3B33;
-  --sage:#7C9A81;
+  /* Modo oscuro (por defecto) */
+  --ink-900:#14201A;         /* Fondo principal */
+  --ink-800:#1C2C23;         /* Superficies / tarjetas */
+  --ink-700:#24362A;         /* Bordes / hover */
+  --parchment:#EDE6D3;       /* Texto principal */
+  --parchment-dim:#B9C1AF;   /* Texto secundario */
+  --brass:#C6A15B;           /* Acento (dorado) */
+  --brass-dim:#8E7440;       /* Acento atenuado */
+  --burgundy:#9A3B33;        /* Peligro */
+  --sage:#7C9A81;            /* Éxito */
+  --overlay:rgba(10,15,11,.7);
   --radius:10px;
   --serif:'Fraunces', Georgia, 'Times New Roman', serif;
   --sans:'Inter', -apple-system, Segoe UI, Roboto, sans-serif;
 }
+
+/* Modo claro: redefinimos los MISMOS nombres */
+[data-theme="light"]{
+  --ink-900:#FDFBF7;         /* Fondo papel envejecido */
+  --ink-800:#F5F0E8;         /* Tarjetas crema */
+  --ink-700:#D9CFBE;         /* Bordes / hover */
+  --parchment:#2C2C2C;       /* Texto principal (casi negro) */
+  --parchment-dim:#5F5F5F;   /* Texto secundario */
+  --brass:#8E6F34;           /* Dorado más oscuro, buen contraste */
+  --brass-dim:#C6A15B;       /* Dorado visible sobre crema */
+  --burgundy:#8B2E2E;
+  --sage:#4A6F4A;
+  --overlay:rgba(40,30,20,.45);
+}
+
 *{box-sizing:border-box;}
 body{
   margin:0; background:var(--ink-900); color:var(--parchment);
   font-family:var(--sans); line-height:1.5;
+  transition:background-color .3s ease, color .3s ease;
 }
 a{color:inherit;}
 
 /* Encabezado */
 header.hero{
+  position:relative; /* necesario para anclar el botón del tema */
   padding:56px 40px 40px; border-bottom:1px solid var(--ink-700);
   display:flex; justify-content:space-between; align-items:flex-end; gap:32px; flex-wrap:wrap;
 }
@@ -31,6 +50,27 @@ header.hero{
 .hero-mini .stat{text-align:right;}
 .hero-mini .stat b{display:block; font-family:var(--serif); font-size:28px; font-weight:600;}
 .hero-mini .stat span{font-size:12.5px; color:var(--parchment-dim);}
+
+/* Botón de tema (arriba a la derecha del hero) */
+.theme-toggle{
+  background:var(--ink-800);
+  border:1px solid var(--ink-700);
+  color:var(--parchment);
+  border-radius:50%;
+  width:42px; height:42px;
+  font-size:18px;
+  cursor:pointer;
+  display:grid; place-items:center;
+  position:absolute; top:20px; right:20px;
+  transition:background-color .2s, border-color .2s, transform .2s, color .2s;
+  z-index:2;
+}
+.theme-toggle:hover{
+  background-color:var(--brass);
+  border-color:var(--brass);
+  color:var(--ink-900);
+  transform:rotate(-15deg);
+}
 
 /* Estanterías (secciones) */
 section.shelves{padding:28px 40px 8px;}
@@ -107,7 +147,7 @@ main{padding:20px 40px 60px;}
 
 /* Modal */
 .modal-bg{
-  display:none; position:fixed; inset:0; background:rgba(10,15,11,.7);
+  display:none; position:fixed; inset:0; background:var(--overlay);
   align-items:center; justify-content:center; z-index:20; padding:20px;
 }
 .modal-bg.show{display:flex;}
@@ -144,4 +184,69 @@ main{padding:20px 40px 60px;}
   .book-row{grid-template-columns:18px 4px 1fr; grid-template-areas:"chk spine titulo" "chk spine meta" "chk spine actions";}
   .book-row .meta{display:none;}
   .field-row{grid-template-columns:1fr;}
+}
+
+.theme-toggle {
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-color);
+  color: var(--text-primary);
+  border-radius: 50%;
+  width: 40px;
+  height: 40px;
+  font-size: 20px;
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+  position: absolute; 
+  top: 20px;
+  right: 20px;
+  transition: background-color 0.2s, border-color 0.2s;
+}
+.theme-toggle:hover {
+  background-color: var(--accent-primary);
+  border-color: var(--accent-primary);
+  color: #1A1A1A; /* Texto oscuro sobre fondo dorado */
+}
+
+/* Frase del día */
+.quote-band{
+  padding: 32px 40px 8px;
+  text-align: center;
+  border-bottom: 1px solid var(--ink-700);
+}
+.quote-text{
+  font-family: var(--serif);
+  font-style: italic;
+  font-weight: 500;
+  font-size: clamp(18px, 2.2vw, 24px);
+  line-height: 1.4;
+  color: var(--parchment);
+  margin: 0 auto 8px;
+  max-width: 720px;
+  position: relative;
+}
+/* Comillas decorativas */
+.quote-text::before,
+.quote-text::after{
+  color: var(--brass);
+  font-size: 1.4em;
+  line-height: 0;
+  vertical-align: -0.25em;
+}
+.quote-text::before{ content: "«"; margin-right: .15em; }
+.quote-text::after{ content: "»"; margin-left: .15em; }
+
+.quote-author{
+  display: block;
+  font-family: var(--sans);
+  font-style: normal;
+  font-size: 13px;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  color: var(--brass);
+}
+
+/* En móvil, un poco menos de aire */
+@media (max-width:760px){
+  .quote-band{ padding-left: 18px; padding-right: 18px; }
 }
