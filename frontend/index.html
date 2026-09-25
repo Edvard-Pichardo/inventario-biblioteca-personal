@@ -29,7 +29,6 @@
   </button>
   <div class="hero-count" id="heroCount">0<small>Libros físicos</small></div>
   <div class="hero-mini">
-    <div class="stat"><b id="statKindle">0</b><span>En digitales</span></div>
     <div class="stat"><b id="statLeidos">0</b><span>Leídos este año</span></div>
     <div class="stat"><b id="statDeseos">0</b><span>En lista de compras</span></div>
   </div>
@@ -47,7 +46,7 @@
 
 <div class="tabs">
   <div class="tab active" data-tab="inventario">Inventario</div>
-  <div class="tab" data-tab="leidos">Leídos</div>
+  <div class="tab" data-tab="leidos">Libros leídos</div>
   <div class="tab" data-tab="deseos">Por comprar</div>
 </div>
 
@@ -72,6 +71,14 @@
   <button class="btn secondary" id="btnExportar" type="button">⬇ Exportar</button>
   <button class="btn secondary" id="btnImportar" type="button">⬆ Importar</button>
   <input type="file" id="fileImportar" accept="application/json" hidden>
+</div>
+
+<div class="section-toolbar" id="toolbarLeidos" style="display:none">
+  <button class="btn" id="btnNuevoLeido" type="button">+ Agregar libro leído</button>
+</div>
+
+<div class="section-toolbar" id="toolbarDeseos" style="display:none">
+  <button class="btn" id="btnNuevoDeseo" type="button">+ Agregar a lista de deseos</button>
 </div>
 
 <main>
@@ -108,9 +115,6 @@
     </div>
 
     <div class="field-row">
-      <div class="field"><label>Posesión</label>
-        <select id="fmPosesion"><option value="Físico">Físico</option><option value="Kindle">Kindle</option></select>
-      </div>
       <div class="field"><label>Formato</label>
         <select id="fmFormato"><option value="">—</option><option value="Pasta blanda">Pasta blanda</option><option value="Pasta dura">Pasta dura (HC)</option></select>
       </div>
@@ -152,6 +156,95 @@
     <div class="dialog-actions">
       <button class="btn secondary" id="dialogCancel" type="button">Cancelar</button>
       <button class="btn" id="dialogOk" type="button">Aceptar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: agregar libro leído -->
+<div class="modal-bg" id="modalLeido">
+  <div class="modal">
+    <h3>Agregar libro leído</h3>
+
+    <div class="field"><label>Título *</label><input type="text" id="lmTitulo"></div>
+
+    <div class="field-row">
+      <div class="field"><label>Autor(es), separados por coma</label><input type="text" id="lmAutores"></div>
+      <div class="field"><label>Editorial</label><input type="text" id="lmEditorial"></div>
+    </div>
+
+    <div class="field-row">
+      <div class="field"><label>Formato</label>
+        <select id="lmFormato">
+          <option value="">—</option>
+          <option value="Pasta blanda">Pasta blanda</option>
+          <option value="Pasta dura">Pasta dura (HC)</option>
+          <option value="Electrónico">Electrónico</option>
+          <option value="Audiolibro">Audiolibro</option>
+        </select>
+      </div>
+      <div class="field"><label>Páginas</label><input type="number" id="lmPaginas"></div>
+    </div>
+
+    <div class="field-row">
+      <div class="field"><label>Año de publicación</label><input type="number" id="lmAnio"></div>
+      <div class="field"><label>Fecha en que lo terminé</label><input type="date" id="lmFechaFin"></div>
+    </div>
+
+    <div class="field"><label>Calificación</label>
+      <select id="lmCalificacion">
+        <option value="">—</option>
+        <option value="1">★</option><option value="2">★★</option>
+        <option value="3">★★★</option><option value="4">★★★★</option>
+        <option value="5">★★★★★</option>
+      </select>
+    </div>
+
+    <div class="modal-actions">
+      <button class="btn secondary" id="btnCancelarModalLeido" type="button">Cancelar</button>
+      <button class="btn" id="btnGuardarLeido" type="button">Guardar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: agregar a lista de deseos -->
+<div class="modal-bg" id="modalDeseo">
+  <div class="modal">
+    <h3>Agregar a lista de deseos</h3>
+
+    <div class="field"><label>Título *</label><input type="text" id="dmTitulo"></div>
+
+    <div class="field-row">
+      <div class="field"><label>Autor(es)</label><input type="text" id="dmAutores"></div>
+      <div class="field"><label>Editorial</label><input type="text" id="dmEditorial"></div>
+    </div>
+
+    <div class="field-row">
+      <div class="field"><label>Páginas</label><input type="number" id="dmPaginas"></div>
+      <div class="field"><label>Formato deseado</label>
+        <select id="dmFormato">
+          <option value="Cualquiera">Cualquiera</option>
+          <option value="Pasta blanda">Pasta blanda</option>
+          <option value="Pasta dura">Pasta dura (HC)</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="field-row">
+      <div class="field"><label>Prioridad</label>
+        <select id="dmPrioridad">
+          <option value="Media">Media</option>
+          <option value="Alta">Alta</option>
+          <option value="Baja">Baja</option>
+        </select>
+      </div>
+      <div class="field"><label>Precio estimado</label><input type="number" step="0.01" id="dmPrecio"></div>
+    </div>
+
+    <div class="field"><label>Motivo / notas</label><textarea id="dmMotivo"></textarea></div>
+
+    <div class="modal-actions">
+      <button class="btn secondary" id="btnCancelarModalDeseo" type="button">Cancelar</button>
+      <button class="btn" id="btnGuardarDeseo" type="button">Guardar</button>
     </div>
   </div>
 </div>

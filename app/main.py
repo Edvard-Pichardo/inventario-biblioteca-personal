@@ -172,7 +172,6 @@ def eliminar_deseo(deseo_id: int, db: Session = Depends(get_db)):
 def resumen(db: Session = Depends(get_db)):
     return {
         "total_fisicos": crud.total_libros(db, "Físico"),
-        "total_kindle": crud.total_libros(db, "Kindle"),
         "por_seccion": crud.conteo_por_seccion(db),
         "por_ubicacion": crud.conteo_por_ubicacion(db),
     }

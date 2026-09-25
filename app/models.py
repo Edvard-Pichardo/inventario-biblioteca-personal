@@ -79,7 +79,7 @@ class Libro(Base):
     titulo = Column(String(200), nullable=False)
     subtitulo = Column(String(200))
     isbn = Column(String(20))
-    posesion = Column(Enum("Físico", "Kindle"), nullable=False, default="Físico")
+    posesion = Column(Enum("Físico", "Kindle", "Registrado"), nullable=False, default="Físico")
 
     editorial_id = Column(Integer, ForeignKey("editoriales.id", ondelete="SET NULL"))
     idioma_id = Column(Integer, ForeignKey("idiomas.id", ondelete="SET NULL"))
@@ -135,6 +135,8 @@ class ListaDeseos(Base):
     libro_id = Column(Integer, ForeignKey("libros.id", ondelete="CASCADE"))
     titulo = Column(String(200))
     autor_texto = Column(String(120))
+    editorial_texto = Column(String(100))
+    paginas = Column(SmallInteger)
     isbn = Column(String(20))
     formato_deseado = Column(Enum("Pasta blanda", "Pasta dura", "Cualquiera"), default="Cualquiera")
     prioridad = Column(Enum("Alta", "Media", "Baja"), default="Media")

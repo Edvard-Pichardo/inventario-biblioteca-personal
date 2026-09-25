@@ -124,7 +124,6 @@ async function cargarLecturasCache(){
 async function cargarResumen(){
   const r = await api("/stats/resumen");
   document.getElementById("heroCount").innerHTML = `${r.total_fisicos}<small>Libros físicos en el cuarto</small>`;
-  document.getElementById("statKindle").textContent = r.total_kindle;
 
   const grid = document.getElementById("shelfGrid");
   grid.innerHTML = r.por_seccion.map(s => `
@@ -293,7 +292,6 @@ document.getElementById("btnLimpiar").addEventListener("click", ()=>{
 // Modal para agregar o editar un libro
 function limpiarModal(){
   ["fmIsbn","fmTitulo","fmAutores","fmEditorial","fmAnio","fmPaginas","fmNotas"].forEach(id=>document.getElementById(id).value="");
-  document.getElementById("fmPosesion").value = "Físico";
   document.getElementById("fmFormato").value = "";
   document.getElementById("fmSeccion").value = "";
   document.getElementById("fmUbicacion").value = "";
@@ -339,7 +337,6 @@ function abrirModal(id, listaActual){
   document.getElementById("fmTitulo").value = l.titulo || "";
   document.getElementById("fmAutores").value = (l.autores||[]).map(a=>a.nombre).join(", ");
   document.getElementById("fmEditorial").value = l.editorial?.nombre || "";
-  document.getElementById("fmPosesion").value = l.posesion || "Físico";
   document.getElementById("fmFormato").value = l.formato || "";
   document.getElementById("fmSeccion").value = l.seccion_id || "";
   document.getElementById("fmUbicacion").value = l.ubicacion_id || "";
@@ -393,7 +390,7 @@ document.getElementById("btnGuardarLibro").addEventListener("click", async ()=>{
   const payload = {
     titulo,
     isbn: document.getElementById("fmIsbn").value.trim() || null,
-    posesion: document.getElementById("fmPosesion").value,
+    posesion: "Físico",
     formato: document.getElementById("fmFormato").value || null,
     seccion_id: Number(document.getElementById("fmSeccion").value) || null,
     ubicacion_id: Number(document.getElementById("fmUbicacion").value) || null,
@@ -445,10 +442,15 @@ document.querySelectorAll(".tab").forEach(tab=>{
     document.querySelectorAll(".tab").forEach(t=>t.classList.remove("active"));
     tab.classList.add("active");
     const destino = tab.dataset.tab;
-    document.getElementById("toolbar").style.display = destino==="inventario" ? "flex" : "none";
+
+    document.getElementById("toolbar").style.display        = destino==="inventario" ? "flex" : "none";
+    document.getElementById("toolbarLeidos").style.display   = destino==="leidos"     ? "flex" : "none";
+    document.getElementById("toolbarDeseos").style.display   = destino==="deseos"     ? "flex" : "none";
+
     document.getElementById("listaInventario").style.display = destino==="inventario" ? "block" : "none";
-    document.getElementById("listaLeidos").style.display = destino==="leidos" ? "block" : "none";
-    document.getElementById("listaDeseos").style.display = destino==="deseos" ? "block" : "none";
+    document.getElementById("listaLeidos").style.display     = destino==="leidos"     ? "block" : "none";
+    document.getElementById("listaDeseos").style.display     = destino==="deseos"     ? "block" : "none";
+
     if (destino === "leidos") cargarLeidos();
     if (destino === "deseos") cargarDeseos();
   });
@@ -640,4 +642,100 @@ document.getElementById("fileImportar").addEventListener("change", async (e) => 
   await cargarCatalogos();
   await refrescarTodo();
   toast(`Importación terminada: ${ok} añadidos, ${fail} fallidos.`, fail ? "error" : "success");
+});
+
+
+//  Agregar libro leído
+document.getElementById("btnNuevoLeido").addEventListener("click", () => {
+  ["lmTitulo","lmAutores","lmEditorial","lmPaginas","lmAnio","lmFechaFin"].forEach(id =>
+    document.getElementById(id).value = "");
+  document.getElementById("lmFormato").value = "";
+  document.getElementById("lmCalificacion").value = "";
+  document.getElementById("modalLeido").classList.add("show");
+});
+
+document.getElementById("btnCancelarModalLeido").addEventListener("click", () => {
+  document.getElementById("modalLeido").classList.remove("show");
+});
+
+document.getElementById("btnGuardarLeido").addEventListener("click", async () => {
+  const titulo = document.getElementById("lmTitulo").value.trim();
+  if (!titulo){ toast("El título es obligatorio.", "error"); return; }
+
+  try {
+    // Crear libro con posesion='Registrado'. NO aparece en inventario
+    const libro = await api("/libros", {
+      method: "POST",
+      body: JSON.stringify({
+        titulo,
+        posesion: "Registrado",
+        formato: document.getElementById("lmFormato").value || null,
+        paginas: Number(document.getElementById("lmPaginas").value) || null,
+        anio_publicacion: Number(document.getElementById("lmAnio").value) || null,
+        autor_ids: await idsAutoresPorNombre(document.getElementById("lmAutores").value),
+      })
+    });
+
+    // Crear la lectura
+    await api("/lecturas", {
+      method: "POST",
+      body: JSON.stringify({
+        libro_id: libro.id,
+        fecha_fin: document.getElementById("lmFechaFin").value || new Date().toISOString().slice(0,10),
+        calificacion: Number(document.getElementById("lmCalificacion").value) || null,
+      })
+    });
+
+    document.getElementById("modalLeido").classList.remove("show");
+    lecturasCache = null; librosLeidosSet = new Set();
+    await cargarCatalogos();
+    await cargarLeidos();
+    await cargarStatsExtras();
+    toast("Libro leído agregado.", "success");
+  } catch(e){
+    toast("Error al guardar: " + (e.message || e), "error");
+  }
+});
+
+
+//  Agregar a la lista de deseos
+document.getElementById("btnNuevoDeseo").addEventListener("click", () => {
+  ["dmTitulo","dmAutores","dmEditorial","dmPaginas","dmPrecio","dmMotivo"].forEach(id =>
+    document.getElementById(id).value = "");
+  document.getElementById("dmFormato").value = "Cualquiera";
+  document.getElementById("dmPrioridad").value = "Media";
+  document.getElementById("modalDeseo").classList.add("show");
+});
+
+document.getElementById("btnCancelarModalDeseo").addEventListener("click", () => {
+  document.getElementById("modalDeseo").classList.remove("show");
+});
+
+document.getElementById("btnGuardarDeseo").addEventListener("click", async () => {
+  const titulo = document.getElementById("dmTitulo").value.trim();
+  if (!titulo){ toast("El título es obligatorio.", "error"); return; }
+
+  try {
+    await api("/deseos", {
+      method: "POST",
+      body: JSON.stringify({
+        titulo,
+        autor_texto: document.getElementById("dmAutores").value.trim() || null,
+        editorial_texto: document.getElementById("dmEditorial").value.trim() || null,
+        paginas: Number(document.getElementById("dmPaginas").value) || null,
+        formato_deseado: document.getElementById("dmFormato").value,
+        prioridad: document.getElementById("dmPrioridad").value,
+        precio_estimado: Number(document.getElementById("dmPrecio").value) || null,
+        motivo: document.getElementById("dmMotivo").value.trim() || null,
+        comprado: false,
+      })
+    });
+
+    document.getElementById("modalDeseo").classList.remove("show");
+    await cargarDeseos();
+    await cargarStatsExtras();
+    toast("Añadido a la lista de deseos.", "success");
+  } catch(e){
+    toast("Error al guardar: " + (e.message || e), "error");
+  }
 });

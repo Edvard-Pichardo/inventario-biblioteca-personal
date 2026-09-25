@@ -116,6 +116,8 @@ class DeseoBase(BaseModel):
     libro_id: Optional[int] = None
     titulo: Optional[str] = None
     autor_texto: Optional[str] = None
+    editorial_texto: Optional[str] = None      
+    paginas: Optional[int] = None
     isbn: Optional[str] = None
     formato_deseado: str = "Cualquiera"
     prioridad: str = "Media"
