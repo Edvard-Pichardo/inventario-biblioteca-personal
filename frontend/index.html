@@ -15,7 +15,6 @@
    })();
  </script>
 <link rel="stylesheet" href="styles.css">
-<script src="https://cdnjs.cloudflare.com/ajax/libs/html5-qrcode/2.3.8/html5-qrcode.min.js"></script>
 </head>
 <body>
 
@@ -63,8 +62,16 @@
     <option value="Pasta dura">Pasta dura (HC)</option>
   </select>
   <select id="fAutor"><option value="">Autor</option></select>
+  <select id="fEstado">
+    <option value="">Estado</option>
+    <option value="leido">Leídos</option>
+    <option value="no-leido">No leídos</option>
+  </select>
   <button class="btn secondary" id="btnLimpiar">Limpiar filtros</button>
   <button class="btn" id="btnNuevo">+ Agregar libro</button>
+  <button class="btn secondary" id="btnExportar" type="button">⬇ Exportar</button>
+  <button class="btn secondary" id="btnImportar" type="button">⬆ Importar</button>
+  <input type="file" id="fileImportar" accept="application/json" hidden>
 </div>
 
 <main>
@@ -89,13 +96,8 @@
     <div class="field isbn-row">
       <input type="text" id="fmIsbn" placeholder="Escanea o escribe el ISBN">
       <button class="btn secondary" id="btnBuscarIsbn" type="button">Autocompletar</button>
-      <button class="btn secondary" id="btnEscanear" type="button">📷 Escanear</button>
     </div>
-    <div class="scanner-wrap" id="scannerWrap">
-      <div id="scannerView"></div>
-      <div class="scanner-hint">Apunta la cámara al código de barras de la contraportada.</div>
-      <button class="btn secondary scanner-close" id="btnCerrarScanner" type="button">Cerrar cámara</button>
-    </div>
+    
     <div class="status-msg" id="isbnStatus"></div>
 
     <div class="field"><label>Título *</label><input type="text" id="fmTitulo"></div>
@@ -136,6 +138,20 @@
     <div class="modal-actions">
       <button class="btn secondary" id="btnCancelarModal">Cancelar</button>
       <button class="btn" id="btnGuardarLibro">Guardar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Toasts + diálogo genérico -->
+<div class="toast-container" id="toastContainer"></div>
+
+<div class="dialog-bg" id="dialogBg">
+  <div class="dialog">
+    <p class="dialog-msg" id="dialogMsg"></p>
+    <input type="text" class="dialog-input" id="dialogInput" hidden>
+    <div class="dialog-actions">
+      <button class="btn secondary" id="dialogCancel" type="button">Cancelar</button>
+      <button class="btn" id="dialogOk" type="button">Aceptar</button>
     </div>
   </div>
 </div>

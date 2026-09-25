@@ -3,6 +3,10 @@ let catalogos = { secciones:[], ubicaciones:[], idiomas:[], autores:[] };
 let filtroSeccionActiva = null;
 let seleccionados = new Set();
 let editandoId = null;
+let inventarioAbort = null;
+let inventarioTimer = null;
+let lecturasCache = null;
+let librosLeidosSet = new Set();
 
 // Función auxiliar que llama a la API y ya trae el JSON parseado, o lanza un
 // error si la respuesta no fue exitosa.
@@ -15,6 +19,70 @@ async function api(path, opts={}) {
   return r.json();
 }
 function esc(s){ return (s ?? "").toString().replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+
+// --- Toasts ---
+function toast(mensaje, tipo = "info", ms = 3500){
+  const cont = document.getElementById("toastContainer");
+  const el = document.createElement("div");
+  el.className = `toast toast-${tipo}`;
+  el.textContent = mensaje;
+  cont.appendChild(el);
+  requestAnimationFrame(() => el.classList.add("show"));
+  setTimeout(() => {
+    el.classList.remove("show");
+    setTimeout(() => el.remove(), 250);
+  }, ms);
+}
+
+// Diálogo genérico (confirmar y pedirTexto comparten motor)
+function abrirDialogo({ mensaje, valor = null, textoOk = "Aceptar", textoCancelar = "Cancelar", peligro = false }){
+  return new Promise((resolve) => {
+    const bg = document.getElementById("dialogBg");
+    const msg = document.getElementById("dialogMsg");
+    const input = document.getElementById("dialogInput");
+    const ok = document.getElementById("dialogOk");
+    const cancel = document.getElementById("dialogCancel");
+
+    msg.textContent = mensaje;
+    ok.textContent = textoOk;
+    cancel.textContent = textoCancelar;
+    ok.classList.toggle("danger", !!peligro);
+
+    const esTexto = valor !== null;
+    input.hidden = !esTexto;
+    if (esTexto){ input.value = valor; setTimeout(()=>{input.focus(); input.select();}, 50); }
+    else { setTimeout(() => ok.focus(), 50); }
+
+    function cerrar(r){
+      bg.classList.remove("show");
+      ok.removeEventListener("click", onOk);
+      cancel.removeEventListener("click", onCancel);
+      bg.removeEventListener("click", onBg);
+      document.removeEventListener("keydown", onKey);
+      input.removeEventListener("keydown", onInputKey);
+      resolve(r);
+    }
+    function onOk(){ cerrar(esTexto ? input.value.trim() : true); }
+    function onCancel(){ cerrar(esTexto ? null : false); }
+    function onBg(e){ if (e.target === bg) cerrar(esTexto ? null : false); }
+    function onKey(e){ if (e.key === "Escape") cerrar(esTexto ? null : false); }
+    function onInputKey(e){ if (e.key === "Enter"){ e.preventDefault(); onOk(); } }
+
+    ok.addEventListener("click", onOk);
+    cancel.addEventListener("click", onCancel);
+    bg.addEventListener("click", onBg);
+    document.addEventListener("keydown", onKey);
+    input.addEventListener("keydown", onInputKey);
+
+    bg.classList.add("show");
+  });
+}
+function confirmar(mensaje, opts = {}){
+  return abrirDialogo({ mensaje, ...opts }).then(v => v === true);
+}
+function pedirTexto(mensaje, valorInicial = "", opts = {}){
+  return abrirDialogo({ mensaje, valor: valorInicial, ...opts });
+}
 
 // Carga inicial de catálogos
 // Trae secciones, ubicaciones, idiomas y autores una sola vez al arrancar, y
@@ -40,6 +108,13 @@ function llenarSelect(id, items, placeholder){
   const el = document.getElementById(id);
   el.innerHTML = `<option value="">${placeholder}</option>` +
     items.map(i => `<option value="${i.id}">${esc(i.nombre)}</option>`).join("");
+}
+
+async function cargarLecturasCache(){
+  if (lecturasCache) return lecturasCache;
+  lecturasCache = await api("/lecturas");
+  librosLeidosSet = new Set(lecturasCache.map(l => l.libro_id));
+  return lecturasCache;
 }
 
 // Resumen
@@ -96,30 +171,62 @@ function paramsFiltros(){
   return p.toString();
 }
 
-async function cargarInventario(){
-  const libros = await api("/libros?" + paramsFiltros());
-  const cont = document.getElementById("listaInventario");
-  if (!libros.length){
-    cont.innerHTML = `<div class="empty">No hay libros que coincidan con estos filtros.</div>`;
-    return;
-  }
-  cont.innerHTML = libros.map(l => filaLibro(l)).join("");
-  cont.querySelectorAll("[data-check]").forEach(chk=>{
-    chk.addEventListener("change", ()=>{
-      const id = Number(chk.dataset.check);
-      chk.checked ? seleccionados.add(id) : seleccionados.delete(id);
-      actualizarBulkbar();
-    });
-  });
-  cont.querySelectorAll("[data-editar]").forEach(b=>b.addEventListener("click", ()=>abrirModal(Number(b.dataset.editar), libros)));
-  cont.querySelectorAll("[data-eliminar]").forEach(b=>b.addEventListener("click", ()=>eliminarLibro(Number(b.dataset.eliminar))));
+function cargarInventarioDebounced(){
+  clearTimeout(inventarioTimer);
+  inventarioTimer = setTimeout(cargarInventario, 250);
 }
+async function cargarInventario(){
+  if (inventarioAbort) inventarioAbort.abort();
+  inventarioAbort = new AbortController();
+
+  const cont = document.getElementById("listaInventario");
+  try{
+    const libros = await api("/libros?" + paramsFiltros(), { signal: inventarioAbort.signal });
+    const estado = document.getElementById("fEstado").value;
+
+    let visibles = libros;
+    if (estado === "leido" || estado === "no-leido"){
+      await cargarLecturasCache();
+      visibles = libros.filter(l => {
+        const leido = librosLeidosSet.has(l.id);
+        return estado === "leido" ? leido : !leido;
+      });
+    }
+
+    if (!visibles.length){
+      cont.innerHTML = `<div class="empty">No hay libros que coincidan con estos filtros.</div>`;
+      return;
+    }
+    cont.innerHTML = visibles.map(l => filaLibro(l)).join("");
+    cont.querySelectorAll("[data-check]").forEach(chk=>{
+      chk.addEventListener("change", ()=>{
+        const id = Number(chk.dataset.check);
+        chk.checked ? seleccionados.add(id) : seleccionados.delete(id);
+        actualizarBulkbar();
+      });
+    });
+    cont.querySelectorAll("[data-editar]").forEach(b=>b.addEventListener("click", ()=>abrirModal(Number(b.dataset.editar), visibles)));
+    cont.querySelectorAll("[data-eliminar]").forEach(b=>b.addEventListener("click", ()=>eliminarLibro(Number(b.dataset.eliminar))));
+  } catch(e){
+    if (e.name === "AbortError") return;
+    throw e;
+  }
+}
+
+
 function filaLibro(l){
   const autores = (l.autores||[]).map(a=>a.nombre).join(", ") || "Autor desconocido";
+  const portada = l.isbn
+    ? `https://covers.openlibrary.org/b/isbn/${encodeURIComponent(l.isbn)}-S.jpg`
+    : null;
+
   return `
   <div class="book-row">
     <input type="checkbox" data-check="${l.id}" ${seleccionados.has(l.id)?"checked":""}>
-    <div class="spine"></div>
+    ${portada
+      ? `<img class="cover" src="${portada}" alt="" loading="lazy"
+              onerror="this.replaceWith(Object.assign(document.createElement('div'),{className:'spine'}))">`
+      : `<div class="spine"></div>`}
     <div>
       <div class="titulo">${esc(l.titulo)}</div>
       <div class="autores">${esc(autores)}</div>
@@ -148,7 +255,7 @@ document.getElementById("bulkCancelar").addEventListener("click", ()=>{
 });
 document.getElementById("bulkEliminar").addEventListener("click", async ()=>{
   if (!seleccionados.size) return;
-  if (!confirm(`¿Eliminar ${seleccionados.size} libro(s)? Esta acción no se puede deshacer.`)) return;
+  if (!await confirmar(`¿Eliminar ${seleccionados.size} libro(s)? Esta acción no se puede deshacer.`, { peligro: true, textoOk: "Eliminar" })) return;
   await api("/libros/lote/eliminar", { method:"POST", body: JSON.stringify([...seleccionados]) });
   seleccionados.clear(); actualizarBulkbar();
   await refrescarTodo();
@@ -173,12 +280,12 @@ document.getElementById("bulkSeccion").addEventListener("change", async (e)=>{
 // Filtros: eventos
 // Cualquier cambio en un filtro vuelve a pedir el inventario de inmediato,
 // así que no hace falta un botón de "buscar".
-["fTexto","fSeccion","fUbicacion","fIdioma","fFormato","fAutor"].forEach(id=>{
-  document.getElementById(id).addEventListener("input", cargarInventario);
+["fSeccion","fUbicacion","fIdioma","fFormato","fAutor", "fEstado"].forEach(id=>{
   document.getElementById(id).addEventListener("change", cargarInventario);
 });
+document.getElementById("fTexto").addEventListener("input", cargarInventarioDebounced);
 document.getElementById("btnLimpiar").addEventListener("click", ()=>{
-  ["fTexto","fSeccion","fUbicacion","fIdioma","fFormato","fAutor"].forEach(id=>document.getElementById(id).value="");
+ ["fTexto","fSeccion","fUbicacion","fIdioma","fFormato","fAutor","fEstado"].forEach(id=>document.getElementById(id).value="");
   filtroSeccionActiva = null;
   cargarInventario(); cargarResumen();
 });
@@ -193,7 +300,6 @@ function limpiarModal(){
   document.getElementById("fmIdioma").value = "";
   document.getElementById("fmCondicion").value = "";
   document.getElementById("isbnStatus").textContent = "";
-  cerrarScanner();
   editandoId = null;
 }
 document.getElementById("btnNuevo").addEventListener("click", ()=>{
@@ -203,6 +309,25 @@ document.getElementById("btnNuevo").addEventListener("click", ()=>{
 });
 document.getElementById("btnCancelarModal").addEventListener("click", ()=>{
   document.getElementById("modalLibro").classList.remove("show");
+});
+// Cerrar modal con Esc y clic fuera
+const modalBg = document.getElementById("modalLibro");
+modalBg.addEventListener("click", (e) => {
+  // Solo cierra si el clic fue en el fondo, no dentro del contenido
+  if (e.target === modalBg) modalBg.classList.remove("show");
+});
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape" && modalBg.classList.contains("show")) {
+    modalBg.classList.remove("show");
+  }
+});
+// Enter guarda (excepto en el textarea de notas)
+modalBg.addEventListener("keydown", (e) => {
+  if (e.key !== "Enter") return;
+  if (e.target.tagName === "TEXTAREA") return; // permitir saltos de línea en Notas
+  if (e.target.tagName === "BUTTON") return;    // no interferir con botones
+  e.preventDefault();
+  document.getElementById("btnGuardarLibro").click();
 });
 
 function abrirModal(id, listaActual){
@@ -244,52 +369,6 @@ document.getElementById("btnBuscarIsbn").addEventListener("click", async ()=>{
   } catch(e){ status.textContent = "Error al consultar el ISBN."; }
 });
 
-// Escáner de código de barras con la cámara
-// Usa html5-qrcode para leer EAN-13/EAN-8/UPC. En cuanto detecta un código,
-// cierra la cámara, lo mete al campo ISBN y dispara el autocompletado solo.
-let scanner = null;
-const FORMATOS_BARRAS = (typeof Html5QrcodeSupportedFormats !== "undefined") ? [
-  Html5QrcodeSupportedFormats.EAN_13, Html5QrcodeSupportedFormats.EAN_8,
-  Html5QrcodeSupportedFormats.UPC_A, Html5QrcodeSupportedFormats.UPC_E,
-  Html5QrcodeSupportedFormats.CODE_128,
-] : undefined;
-
-async function iniciarScanner(){
-  const status = document.getElementById("isbnStatus");
-  if (typeof Html5Qrcode === "undefined"){
-    status.textContent = "No se pudo cargar el lector de cámara (sin conexión a internet).";
-    return;
-  }
-  document.getElementById("scannerWrap").classList.add("show");
-  scanner = new Html5Qrcode("scannerView", { formatsToSupport: FORMATOS_BARRAS, verbose:false });
-  try{
-    await scanner.start(
-      { facingMode: "environment" },
-      { fps: 10, qrbox: { width: 260, height: 140 } },
-      (textoDetectado) => onCodigoDetectado(textoDetectado),
-      () => {} // ignora fotogramas sin lectura, no hace falta hacer nada aquí
-    );
-  } catch(e){
-    status.textContent = "No se pudo abrir la cámara. Revisa los permisos del navegador.";
-    cerrarScanner();
-  }
-}
-async function cerrarScanner(){
-  document.getElementById("scannerWrap").classList.remove("show");
-  if (scanner){
-    try{ await scanner.stop(); await scanner.clear(); } catch(e){}
-    scanner = null;
-  }
-}
-async function onCodigoDetectado(codigo){
-  const limpio = codigo.replace(/[^0-9Xx]/g, "");
-  document.getElementById("fmIsbn").value = limpio;
-  await cerrarScanner();
-  document.getElementById("btnBuscarIsbn").click();
-}
-document.getElementById("btnEscanear").addEventListener("click", iniciarScanner);
-document.getElementById("btnCerrarScanner").addEventListener("click", cerrarScanner);
-document.getElementById("btnCancelarModal").addEventListener("click", cerrarScanner);
 
 // Resuelve los nombres de autor escritos en el formulario a sus ids reales;
 // si un autor no existe todavía, lo crea en el catálogo antes de continuar.
@@ -309,7 +388,7 @@ async function idsAutoresPorNombre(texto){
 
 document.getElementById("btnGuardarLibro").addEventListener("click", async ()=>{
   const titulo = document.getElementById("fmTitulo").value.trim();
-  if (!titulo){ alert("El título es obligatorio."); return; }
+  if (!titulo){ toast("El título es obligatorio.", "error"); return; }
 
   const payload = {
     titulo,
@@ -326,6 +405,21 @@ document.getElementById("btnGuardarLibro").addEventListener("click", async ()=>{
     autor_ids: await idsAutoresPorNombre(document.getElementById("fmAutores").value),
   };
 
+  // Detección de duplicados por ISBN (solo al crear, no al editar)
+  if (!editandoId && payload.isbn){
+    try{
+      const candidatos = await api("/libros?texto=" + encodeURIComponent(payload.isbn));
+      const dup = candidatos.find(l => l.isbn === payload.isbn);
+      if (dup){
+        const seguir = await confirmar(
+          `Ya tienes un libro con este ISBN: "${dup.titulo}". ¿Quieres añadir otro ejemplar de todas formas?`,
+          { textoOk: "Añadir otro" }
+        );
+        if (!seguir) return;
+      }
+    } catch { /* si la comprobación falla, no bloqueamos el guardado */ }
+  }
+
   if (editandoId){
     await api(`/libros/${editandoId}`, { method:"PATCH", body: JSON.stringify(payload) });
   } else {
@@ -334,10 +428,11 @@ document.getElementById("btnGuardarLibro").addEventListener("click", async ()=>{
   document.getElementById("modalLibro").classList.remove("show");
   await cargarCatalogos();
   await refrescarTodo();
+  toast(editandoId ? "Libro actualizado." : "Libro añadido.", "success");
 });
 
 async function eliminarLibro(id){
-  if (!confirm("¿Eliminar este libro de tu inventario?")) return;
+  if (!await confirmar("¿Eliminar este libro de tu inventario?", { peligro: true, textoOk: "Eliminar" })) return;
   await api(`/libros/${id}`, { method:"DELETE" });
   await refrescarTodo();
 }
@@ -377,8 +472,11 @@ async function cargarLeidos(){
     </div>`).join("");
   cont.querySelectorAll("[data-del-lectura]").forEach(b=>b.addEventListener("click", async ()=>{
     await api(`/lecturas/${b.dataset.delLectura}`, { method:"DELETE" });
+    lecturasCache = null;             
+    librosLeidosSet = new Set();
     cargarLeidos(); cargarStatsExtras();
-  }));
+    if (document.getElementById("fEstado").value) cargarInventario();
+}));
 }
 
 // Por comprar
@@ -479,8 +577,8 @@ async function refrescarTodo(){
   nombreEl.textContent = nombre;
 
   // Editar al hacer clic
-  badge.addEventListener('click', () => {
-    const nuevo = prompt('¿Cómo te llamas?', nombre);
+  badge.addEventListener('click', async () => {
+    const nuevo = await pedirTexto("¿Cómo te llamas?", nombre, { textoOk: "Guardar" });
     if (nuevo === null) return;          // canceló
     const limpio = nuevo.trim();
     if (!limpio) return;                 // vacío, no cambiamos nada
@@ -489,3 +587,57 @@ async function refrescarTodo(){
     nombreEl.textContent = nombre;
   });
 })();
+
+
+// Export / Import de inventario
+document.getElementById("btnExportar").addEventListener("click", async () => {
+  const libros = await api("/libros?posesion=Físico"); // o sin filtro si quieres todo
+  const blob = new Blob([JSON.stringify(libros, null, 2)], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `biblioteca-backup-${new Date().toISOString().slice(0,10)}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+});
+
+document.getElementById("btnImportar").addEventListener("click", () => {
+  document.getElementById("fileImportar").click();
+});
+
+document.getElementById("fileImportar").addEventListener("change", async (e) => {
+  const file = e.target.files?.[0];
+  if (!file) return;
+  if (!await confirmar(`¿Importar "${file.name}"? Los libros nuevos se añadirán; no se borra nada existente.`)) return;
+
+  const texto = await file.text();
+  let libros;
+  try { libros = JSON.parse(texto); }
+  catch { toast("El archivo no es un JSON válido.", "error"); return; }
+  if (!Array.isArray(libros)) { toast("El JSON debe ser un array de libros.", "error"); return; }
+
+  let ok = 0, fail = 0;
+  for (const l of libros){
+    try{
+      await api("/libros", { method:"POST", body: JSON.stringify({
+        titulo: l.titulo,
+        isbn: l.isbn || null,
+        posesion: l.posesion || "Físico",
+        formato: l.formato || null,
+        seccion_id: l.seccion_id || null,
+        ubicacion_id: l.ubicacion_id || null,
+        idioma_id: l.idioma_id || null,
+        condicion: l.condicion || null,
+        anio_publicacion: l.anio_publicacion || null,
+        paginas: l.paginas || null,
+        notas: l.notas || null,
+        autor_id: (l.autores || []).map(a => a.id).filter(Boolean),
+      })});
+      ok++;
+    } catch { fail++; }
+  }
+  e.target.value = ""; // permite reimportar el mismo archivo
+  await cargarCatalogos();
+  await refrescarTodo();
+  toast(`Importación terminada: ${ok} añadidos, ${fail} fallidos.`, fail ? "error" : "success");
+});

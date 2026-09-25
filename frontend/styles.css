@@ -119,12 +119,21 @@ section.shelves{padding:28px 40px 8px;}
 /* Lista de libros */
 main{padding:20px 40px 60px;}
 .book-row{
-  display:grid; grid-template-columns:22px 5px 1fr 140px 130px 90px 100px auto;
+  display:grid; grid-template-columns:22px 40px 1fr 140px 130px 90px 100px auto;
   align-items:center; gap:14px; padding:12px 14px; border-radius:8px;
   background:var(--ink-800); margin-bottom:6px; border:1px solid transparent;
 }
+.cover{
+  width:40px; height:60px;
+  object-fit:cover; border-radius:4px;
+  background:var(--ink-700);
+  box-shadow:0 1px 3px rgba(0,0,0,.3);
+}
 .book-row:hover{border-color:var(--ink-700);}
-.book-row .spine{width:5px; align-self:stretch; border-radius:3px; background:var(--brass-dim);}
+.book-row .spine{
+  width:5px; height:60px; justify-self:center;
+  border-radius:3px; background:var(--brass-dim);
+}
 .book-row .titulo{font-family:var(--serif); font-weight:600; font-size:16px;}
 .book-row .autores{font-size:12.5px; color:var(--parchment-dim); margin-top:2px;}
 .book-row .meta{font-size:12.5px; color:var(--parchment-dim);}
@@ -135,6 +144,7 @@ main{padding:20px 40px 60px;}
 }
 .icon-btn:hover{color:var(--parchment); border-color:var(--brass-dim);}
 .empty{padding:60px 20px; text-align:center; color:var(--parchment-dim); font-family:var(--serif); font-size:18px;}
+
 
 /* Barra de selección múltiple */
 .bulkbar{
@@ -169,21 +179,13 @@ main{padding:20px 40px 60px;}
 .modal-actions{display:flex; justify-content:flex-end; gap:10px; margin-top:20px;}
 .status-msg{font-size:12.5px; color:var(--sage); min-height:16px; margin-top:6px;}
 
-/* Escáner de código de barras */
-.scanner-wrap{display:none; margin-top:8px;}
-.scanner-wrap.show{display:block;}
-#scannerView{
-  width:100%; border-radius:8px; overflow:hidden; border:1px solid var(--ink-700);
-  background:#000;
-}
-.scanner-hint{font-size:12px; color:var(--parchment-dim); margin-top:6px; text-align:center;}
-.scanner-close{width:100%; margin-top:8px;}
 
 @media (max-width:760px){
   header.hero, .toolbar, section.shelves, main, .tabs{padding-left:18px; padding-right:18px;}
-  .book-row{grid-template-columns:18px 4px 1fr; grid-template-areas:"chk spine titulo" "chk spine meta" "chk spine actions";}
+  .book-row{grid-template-columns:18px 36px 1fr; grid-template-areas:"chk cover titulo" "chk cover meta" "chk cover actions";}
   .book-row .meta{display:none;}
   .field-row{grid-template-columns:1fr;}
+  .cover{ width:36px; height:54px; }
 }
 
 .theme-toggle {
@@ -298,3 +300,40 @@ main{padding:20px 40px 60px;}
   }
   .welcome-edit{opacity:1;}
 }
+
+/* Toasts */
+.toast-container{
+  position:fixed; bottom:24px; right:24px;
+  display:flex; flex-direction:column; gap:10px;
+  z-index:100; pointer-events:none;
+}
+.toast{
+  background:var(--ink-800); border:1px solid var(--ink-700);
+  border-left:4px solid var(--brass); color:var(--parchment);
+  padding:12px 18px; border-radius:8px; font-size:13.5px;
+  max-width:360px; box-shadow:0 4px 16px rgba(0,0,0,.35);
+  opacity:0; transform:translateY(8px);
+  transition:opacity .25s ease, transform .25s ease;
+  pointer-events:auto;
+}
+.toast.show{opacity:1; transform:translateY(0);}
+.toast-success{border-left-color:var(--sage);}
+.toast-error{border-left-color:var(--burgundy);}
+
+/* Diálogo genérico (confirmar / pedir texto) */
+.dialog-bg{
+  display:none; position:fixed; inset:0; background:var(--overlay);
+  align-items:center; justify-content:center; z-index:90; padding:20px;
+}
+.dialog-bg.show{display:flex;}
+.dialog{
+  background:var(--ink-800); border:1px solid var(--ink-700);
+  border-radius:12px; padding:24px; width:100%; max-width:420px;
+}
+.dialog-msg{margin:0 0 16px; font-size:14.5px; line-height:1.5; color:var(--parchment);}
+.dialog-input{
+  width:100%; background:var(--ink-900); border:1px solid var(--ink-700);
+  color:var(--parchment); padding:9px 10px; border-radius:7px;
+  font-family:var(--sans); font-size:14px; margin-bottom:16px;
+}
+.dialog-actions{display:flex; justify-content:flex-end; gap:10px;}

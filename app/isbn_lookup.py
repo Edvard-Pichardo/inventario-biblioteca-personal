@@ -14,6 +14,7 @@ import requests
 # Definimos las URLs de las APIs de Open Library y Google Books que se utilizarán para buscar información de libros por ISBN.
 OPEN_LIBRARY_URL = "https://openlibrary.org/api/books"
 GOOGLE_BOOKS_URL = "https://www.googleapis.com/books/v1/volumes"
+TIMEOUT = 8
 
 # Definimos la función principal que busca información de un libro por su ISBN.
 def buscar_por_isbn(isbn: str) -> dict:
@@ -27,27 +28,35 @@ def buscar_por_isbn(isbn: str) -> dict:
 def _buscar_open_library(isbn: str) -> dict | None:
     try:
         resp = requests.get(
-            OPEN_LIBRARY_URL,
-            params={"bibkeys": f"ISBN:{isbn}", "format": "json", "jscmd": "data"},
-            timeout=6,
+            "https://openlibrary.org/search.json",
+            params={"q": f"isbn:{isbn}", "fields": "title,author_name,publisher,first_publish_year,number_of_pages_median,cover_i"},
+            timeout=TIMEOUT,
+            headers={"User-Agent": "inventario-biblioteca-personal/1.0"},
         )
         resp.raise_for_status()
-        payload = resp.json().get(f"ISBN:{isbn}")
-        if not payload:
+        data = resp.json()
+        docs = data.get("docs") or []
+        if not docs:
             return None
+
+        doc = docs[0]
+        portada = (
+            f"https://covers.openlibrary.org/b/isbn/{isbn}-M.jpg"
+            if doc.get("cover_i") else None
+        )
         return {
             "encontrado": True,
             "isbn": isbn,
-            "titulo": payload.get("title"),
-            "autores": [a["name"] for a in payload.get("authors", [])],
-            "editorial": (payload.get("publishers") or [{}])[0].get("name"),
-            "anio_publicacion": _extraer_anio(payload.get("publish_date")),
-            "paginas": payload.get("number_of_pages"),
-            "portada_url": payload.get("cover", {}).get("medium"),
+            "fuente": "openlibrary",
+            "titulo": (doc.get("title") or "").strip() or None,
+            "autores": doc.get("author_name") or [],
+            "editorial": (doc.get("publisher") or [None])[0],
+            "anio_publicacion": doc.get("first_publish_year"),
+            "paginas": doc.get("number_of_pages_median"),
+            "portada_url": portada,
         }
-    except requests.RequestException:
+    except (requests.RequestException, ValueError):
         return None
-
 
 def _buscar_google_books(isbn: str) -> dict | None:
     try:
