@@ -967,36 +967,60 @@ document.getElementById("btnGuardarDeseo").addEventListener("click", async ()=>{
   });
 });
 
-//  Frase del día
-(function(){
-  const elTexto = document.getElementById("dailyQuote");
-  const elAutor = document.getElementById("dailyQuoteAuthor");
-  if (!elTexto || !elAutor) return;
 
-  const ahora = new Date();
-  const inicio = new Date(ahora.getFullYear(), 0, 0);
-  const dia = Math.floor((ahora - inicio) / 86400000);
-  const frase = FRASES[dia % FRASES.length];
+//  EXPORTAR / IMPORTAR INVENTARIO
+document.getElementById("btnExportar").addEventListener("click", async () => {
+  const libros = await api("/libros?posesion=Físico");
+  const blob = new Blob([JSON.stringify(libros, null, 2)], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `biblioteca-backup-${new Date().toISOString().slice(0,10)}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+});
 
-  elTexto.textContent = frase.texto;
-  elAutor.textContent = "— " + frase.autor;
-})();
+document.getElementById("btnImportar").addEventListener("click", () => {
+  document.getElementById("fileImportar").click();
+});
 
-//  Arranque
-async function refrescarTodo(){
-  await Promise.all([cargarInventario(), cargarResumen(), cargarStatsExtras()]);
-}
+document.getElementById("fileImportar").addEventListener("change", async (e) => {
+  const file = e.target.files?.[0];
+  if (!file) return;
+  if (!await confirmar(`¿Importar "${file.name}"? Los libros nuevos se añadirán; no se borra nada existente.`)) return;
 
-(async function init(){
-  try{
-    await cargarCatalogos();
-    await refrescarTodo();
-  } catch(e){
-    console.error("Error en init:", e);
-    document.getElementById("listaInventario").innerHTML =
-      `<div class="empty">No se pudo conectar con la API en ${API}.<br>Verifica que esté corriendo (uvicorn app.main:app --reload).</div>`;
+  const texto = await file.text();
+  let libros;
+  try { libros = JSON.parse(texto); }
+  catch { toast("El archivo no es un JSON válido.", "error"); return; }
+  if (!Array.isArray(libros)) { toast("El JSON debe ser un array de libros.", "error"); return; }
+
+  let ok = 0, fail = 0;
+  for (const l of libros){
+    try{
+      await api("/libros", { method:"POST", body: JSON.stringify({
+        titulo: l.titulo,
+        isbn: l.isbn || null,
+        posesion: "Físico",
+        formato: l.formato || null,
+        seccion_id: l.seccion_id || null,
+        ubicacion_id: l.ubicacion_id || null,
+        idioma_id: l.idioma_id || null,
+        condicion: l.condicion || null,
+        anio_publicacion: l.anio_publicacion || null,
+        paginas: l.paginas || null,
+        notas: l.notas || null,
+        autor_ids: (l.autores || []).map(a => a.id).filter(Boolean),
+      })});
+      ok++;
+    } catch { fail++; }
   }
-})();
+  e.target.value = "";
+  librosFisicosCache = null;
+  await cargarCatalogos();
+  await refrescarTodo();
+  toast(`Importación: ${ok} añadidos, ${fail} fallidos.`, fail ? "error" : "success");
+});
 
 
 //  Autocompletado para el filtro de Autor
@@ -1110,3 +1134,85 @@ document.addEventListener("click", (e)=>{
 
 // Botón 
 fAutorClear.addEventListener("click", limpiarAutor);
+
+// Cambio de tema (claro / oscuro)
+(function() {
+  const themeToggle = document.getElementById('theme-toggle');
+  const htmlElement = document.documentElement;
+  const currentTheme = localStorage.getItem('theme');
+
+  if (currentTheme) {
+    htmlElement.setAttribute('data-theme', currentTheme);
+  } else if (window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches) {
+    htmlElement.setAttribute('data-theme', 'light');
+  } else {
+    htmlElement.setAttribute('data-theme', 'dark');
+  }
+
+  function updateToggleIcon(theme) {
+    themeToggle.innerHTML = theme === 'light' ? '🌙' : '☀️';
+  }
+  updateToggleIcon(htmlElement.getAttribute('data-theme'));
+
+  themeToggle.addEventListener('click', () => {
+    const newTheme = htmlElement.getAttribute('data-theme') === 'light' ? 'dark' : 'light';
+    htmlElement.setAttribute('data-theme', newTheme);
+    localStorage.setItem('theme', newTheme);
+    updateToggleIcon(newTheme);
+  });
+})();
+
+
+//  Saludo personalizado
+(function(){
+  const CLAVE = 'nombreUsuario';
+  const POR_DEFECTO = 'Edvard Pichardo';
+
+  const badge = document.getElementById('welcomeBadge');
+  const nombreEl = document.getElementById('welcomeName');
+  if (!badge || !nombreEl) return;
+
+  let nombre = localStorage.getItem(CLAVE) || POR_DEFECTO;
+  nombreEl.textContent = nombre;
+
+  badge.addEventListener('click', async () => {
+    const nuevo = await pedirTexto('¿Cómo te llamas?', nombre, { textoOk: 'Guardar' });
+    if (nuevo === null) return;
+    const limpio = nuevo.trim();
+    if (!limpio) return;
+    nombre = limpio;
+    localStorage.setItem(CLAVE, nombre);
+    nombreEl.textContent = nombre;
+  });
+})();
+
+//  Frase del día
+(function(){
+  const elTexto = document.getElementById("dailyQuote");
+  const elAutor = document.getElementById("dailyQuoteAuthor");
+  if (!elTexto || !elAutor) return;
+
+  const ahora = new Date();
+  const inicio = new Date(ahora.getFullYear(), 0, 0);
+  const dia = Math.floor((ahora - inicio) / 86400000);
+  const frase = FRASES[Math.floor(Math.random() * FRASES.length)];
+
+  elTexto.textContent = frase.texto;
+  elAutor.textContent = "— " + frase.autor;
+})();
+
+//  Arranque
+async function refrescarTodo(){
+  await Promise.all([cargarInventario(), cargarResumen(), cargarStatsExtras()]);
+}
+
+(async function init(){
+  try{
+    await cargarCatalogos();
+    await refrescarTodo();
+  } catch(e){
+    console.error("Error en init:", e);
+    document.getElementById("listaInventario").innerHTML =
+      `<div class="empty">No se pudo conectar con la API en ${API}.<br>Verifica que esté corriendo (uvicorn app.main:app --reload).</div>`;
+  }
+})();
