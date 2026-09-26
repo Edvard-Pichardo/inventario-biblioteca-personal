@@ -28,7 +28,7 @@ Aplicación de inventario para llevar el control de una colección de libros fí
 - [Instalación](#instalación)
 - [Estructura del proyecto](#estructura-del-proyecto)
 - [Roadmap](#roadmap)
-- [Autor y licencia](#-autor-y-licencia)
+- [Autor y licencia](#autor-y-licencia)
 
 ---
 
