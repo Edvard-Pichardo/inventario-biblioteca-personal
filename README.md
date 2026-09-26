@@ -1,11 +1,11 @@
 <div align="center">
   
-# Inventario de biblioteca personal
+# Inventario de Biblioteca Personal
 
-![Estado](https://img.shields.io/badge/estado-en%20desarrollo-A9812E)
-![Python](https://img.shields.io/badge/Python-3.11-1F3A5F)
-![FastAPI](https://img.shields.io/badge/FastAPI-0.115-1F3A5F)
-![MySQL](https://img.shields.io/badge/MySQL-8.0-1F3A5F)
+![Python](https://img.shields.io/badge/Python-3.11-3776AB?logo=python&logoColor=white)
+![MySQL](https://img.shields.io/badge/MySQL-8.0-4479A1?logo=mysql&logoColor=white)
+![FastAPI](https://img.shields.io/badge/FastAPI-0.115-009688?logo=fastapi&logoColor=white)
+![Licencia](https://img.shields.io/badge/Licencia-MIT-3DA639?logo=opensourceinitiative&logoColor=white)
 
 Aplicación de inventario para llevar el control de una colección de libros física y digital: cuántos libros hay, dónde está cada uno, qué se ha leído y qué falta por comprar — con una base de datos relacional en MySQL como columna vertebral.
 
