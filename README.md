@@ -69,10 +69,10 @@ Aplicación de inventario para llevar el control de una colección de libros fí
 ## Arquitectura
 
 ```
-┌──────────────────────┐        HTTP / JSON        ┌───────────────────────┐        SQL        ┌─────────────┐
-│   Frontend (HTML/JS)  │  ────────────────────────▶ │   API (FastAPI)       │ ─────────────────▶ │   MySQL     │
-│   filtros, modales,   │ ◀──────────────────────── │   validación,          │ ◀───────────────── │  relacional │
-│   autocompletados     │                            │   reglas de negocio    │                     │             │
+┌──────────────────────┐        HTTP / JSON         ┌───────────────────────┐        SQL          ┌─────────────┐
+│   Frontend (HTML/JS) │  ────────────────────────▶ │   API (FastAPI)       │ ─────────────────▶ │   MySQL     │
+│   filtros, modales,  │ ◀────────────────────────  │   validación,         │ ◀───────────────── │  relacional │
+│   autocompletados    │                            │   reglas de negocio   │                     │             │
 └──────────────────────┘                            └───────────────────────┘                     └─────────────┘
 ```
 
