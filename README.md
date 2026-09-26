@@ -19,13 +19,15 @@ Aplicación de inventario para llevar el control de una colección de libros fí
 
 ## Contenido
 
-- [Funcionalidad](#-funcionalidad)
-- [Arquitectura](#-arquitectura)
-- [Modelo de datos](#-modelo-de-datos)
-- [Stack](#-stack)
-- [Instalación](#-instalacion)
-- [Estructura del proyecto](#-estructura-del-proyecto)
-- [Roadmap](#-roadmap)
+## Contenido
+
+- [Funcionalidad](#funcionalidad)
+- [Arquitectura](#arquitectura)
+- [Modelo de datos](#modelo-de-datos)
+- [Stack](#stack)
+- [Instalación](#instalación)
+- [Estructura del proyecto](#estructura-del-proyecto)
+- [Roadmap](#roadmap)
 - [Autor y licencia](#-autor-y-licencia)
 
 ---
