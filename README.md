@@ -19,15 +19,12 @@ Aplicación de inventario para llevar el control de una colección de libros fí
 
 ## Contenido
 
-## Contenido
-
 - [Funcionalidad](#funcionalidad)
 - [Arquitectura](#arquitectura)
 - [Modelo de datos](#modelo-de-datos)
 - [Stack](#stack)
 - [Instalación](#instalación)
 - [Estructura del proyecto](#estructura-del-proyecto)
-- [Roadmap](#roadmap)
 - [Autor y licencia](#autor-y-licencia)
 
 ---
@@ -67,6 +64,8 @@ Aplicación de inventario para llevar el control de una colección de libros fí
   <img src="images/fondo2.png" width="80%">
 </p>
 
+---
+
 ## Arquitectura
 
 ```
@@ -80,6 +79,8 @@ Aplicación de inventario para llevar el control de una colección de libros fí
 El frontend no habla con la base de datos directamente, sino que toda la lógica de
 filtrado, edición en lote, limpieza de autores huérfanos y consulta de ISBN
 pasa por la API, que es la única que conoce las credenciales de MySQL.
+
+---
 
 ## Modelo de datos
 
@@ -159,6 +160,8 @@ muchos-a-muchos: en la base de datos física se implementan con las tablas
 puente `libro_autor` y `libro_genero`, que aquí se omiten para que el
 diagrama se lea de un vistazo.
 
+---
+
 ## Stack
 
 | Capa | Tecnología |
@@ -168,6 +171,7 @@ diagrama se lea de un vistazo.
 | Frontend | HTML, CSS y JavaScript nativo (sin framework) |
 | Autocompletado de metadatos | Open Library (`search.json` + portadas) / Google Books, como respaldo |
 
+--- 
 ## Instalación
 
 ```bash
@@ -196,6 +200,8 @@ Con la API en `http://127.0.0.1:8000` y el frontend en
 `http://localhost:5500`, la aplicación queda lista. La documentación
 interactiva de la API está en `http://127.0.0.1:8000/docs`.
 
+---
+
 ## Estructura del proyecto
 
 ```
@@ -215,13 +221,6 @@ inventario-biblioteca-personal/
     ├── app.js              # lógica: llamadas a la API, filtros, modales, autocompletados
     └── frases.js           # frases sobre libros y escritura para el banner del inicio
 ```
-
-## Roadmap
-
-- [ ] Estadísticas visuales (lecturas por mes, por autor, por idioma)
-- [ ] Escaneo de código de barras con la cámara para dar de alta por ISBN
-- [ ] Empaquetado como aplicación de escritorio para Windows
-
 ---
 
 ## Autor y licencia
