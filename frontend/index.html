@@ -60,11 +60,24 @@
     <option value="Pasta blanda">Pasta blanda</option>
     <option value="Pasta dura">Pasta dura (HC)</option>
   </select>
-  <select id="fAutor"><option value="">Autor</option></select>
+  <div class="autocomplete ac-filter" id="fAutorWrap">
+    <input type="text" id="fAutorBuscar" placeholder="Autor…" autocomplete="off">
+    <button type="button" class="ac-clear" id="fAutorClear" hidden aria-label="Quitar selección">×</button>
+    <div class="ac-dropdown" id="fAutorDropdown" hidden></div>
+  </div>
+  <input type="hidden" id="fAutor" value="">
   <select id="fEstado">
     <option value="">Estado</option>
     <option value="leido">Leídos</option>
     <option value="no-leido">No leídos</option>
+  </select>
+  <select id="fOrden">
+    <option value="">Ordenar por…</option>
+    <option value="fecha-desc">Más recientes primero</option>
+    <option value="fecha-asc">Más antiguos primero</option>
+    <option value="titulo-asc">Título (A → Z)</option>
+    <option value="titulo-desc">Título (Z → A)</option>
+    <option value="autor-asc">Autor (A → Z)</option>
   </select>
   <button class="btn secondary" id="btnLimpiar">Limpiar filtros</button>
   <button class="btn" id="btnNuevo">+ Agregar libro</button>
@@ -74,10 +87,63 @@
 </div>
 
 <div class="section-toolbar" id="toolbarLeidos" style="display:none">
+  <input type="text" id="lTexto" placeholder="Buscar por título…">
+  <select id="lFormato">
+    <option value="">Formato</option>
+    <option value="Pasta blanda">Pasta blanda</option>
+    <option value="Pasta dura">Pasta dura</option>
+    <option value="Electrónico">Electrónico</option>
+    <option value="Audiolibro">Audiolibro</option>
+  </select>
+  <select id="lCalificacion">
+    <option value="">Calificación</option>
+    <option value="5">★★★★★</option>
+    <option value="4">★★★★</option>
+    <option value="3">★★★</option>
+    <option value="2">★★</option>
+    <option value="1">★</option>
+  </select>
+  <select id="lAnio">
+    <option value="">Todos los años</option>
+  </select>
+  <select id="lOrden">
+    <option value="">Ordenar por…</option>
+    <option value="fecha-desc">Leídos recientemente primero</option>
+    <option value="fecha-asc">Leídos hace más tiempo primero</option>
+    <option value="titulo-asc">Título (A → Z)</option>
+    <option value="titulo-desc">Título (Z → A)</option>
+    <option value="calif-desc">Mejor calificados primero</option>
+  </select>
+  <button class="btn secondary" id="btnLimpiarLeidos" type="button">Limpiar</button>
+  <button class="btn secondary" id="btnExportarLeidos" type="button">⬇ Exportar</button>
+  <button class="btn secondary" id="btnImportarLeidos" type="button">⬆ Importar</button>
+  <input type="file" id="fileImportarLeidos" accept="application/json" hidden>
   <button class="btn" id="btnNuevoLeido" type="button">+ Agregar libro leído</button>
 </div>
 
 <div class="section-toolbar" id="toolbarDeseos" style="display:none">
+  <input type="text" id="dTexto" placeholder="Buscar por título…">
+  <select id="dPrioridad">
+    <option value="">Prioridad</option>
+    <option value="Alta">Alta</option>
+    <option value="Media">Media</option>
+    <option value="Baja">Baja</option>
+  </select>
+  <select id="dFormato">
+    <option value="">Formato deseado</option>
+    <option value="Pasta blanda">Pasta blanda</option>
+    <option value="Pasta dura">Pasta dura</option>
+    <option value="Cualquiera">Cualquiera</option>
+  </select>
+  <select id="dOrden">
+    <option value="">Ordenar por…</option>
+    <option value="fecha-desc">Añadidos recientemente</option>
+    <option value="fecha-asc">Añadidos hace más tiempo</option>
+    <option value="titulo-asc">Título (A → Z)</option>
+    <option value="titulo-desc">Título (Z → A)</option>
+    <option value="prioridad">Prioridad (Alta → Baja)</option>
+  </select>
+  <button class="btn secondary" id="btnLimpiarDeseos" type="button">Limpiar</button>
   <button class="btn" id="btnNuevoDeseo" type="button">+ Agregar a lista de deseos</button>
 </div>
 
@@ -165,14 +231,32 @@
   <div class="modal">
     <h3>Agregar libro leído</h3>
 
-    <div class="field"><label>Título *</label><input type="text" id="lmTitulo"></div>
+    <!-- Selector buscable: ¿ya está en tu biblioteca física? -->
+  <div class="field">
+    <label>¿Ya está en tu biblioteca?</label>
+    <div class="autocomplete" id="lmAutocomplete">
+      <input type="text" id="lmBuscarLibro" placeholder="Escribe para buscar un libro…" autocomplete="off">
+      <button type="button" class="ac-clear" id="lmClearLibro" hidden aria-label="Quitar selección">×</button>
+      <div class="ac-dropdown" id="lmDropdown" hidden></div>
+    </div>
+    <input type="hidden" id="lmLibroExistente" value="">
+  </div>
 
-    <div class="field-row">
+    <!-- ISBN (solo si es nuevo) -->
+    <div class="field isbn-row" id="lmIsbnRow">
+      <input type="text" id="lmIsbn" placeholder="ISBN (opcional, autocompleta)">
+      <button class="btn secondary" id="btnBuscarIsbnLeido" type="button">Autocompletar</button>
+    </div>
+    <div class="status-msg" id="lmIsbnStatus"></div>
+
+    <div class="field" id="lmTituloField"><label>Título *</label><input type="text" id="lmTitulo"></div>
+
+    <div class="field-row" id="lmAutoresField">
       <div class="field"><label>Autor(es), separados por coma</label><input type="text" id="lmAutores"></div>
       <div class="field"><label>Editorial</label><input type="text" id="lmEditorial"></div>
     </div>
 
-    <div class="field-row">
+    <div class="field-row" id="lmFormatoField">
       <div class="field"><label>Formato</label>
         <select id="lmFormato">
           <option value="">—</option>
@@ -199,6 +283,8 @@
       </select>
     </div>
 
+    <div class="field"><label>Opinión</label><textarea id="lmOpinion" placeholder="¿Qué te pareció?"></textarea></div>
+
     <div class="modal-actions">
       <button class="btn secondary" id="btnCancelarModalLeido" type="button">Cancelar</button>
       <button class="btn" id="btnGuardarLeido" type="button">Guardar</button>
@@ -210,6 +296,12 @@
 <div class="modal-bg" id="modalDeseo">
   <div class="modal">
     <h3>Agregar a lista de deseos</h3>
+
+    <div class="field isbn-row">
+      <input type="text" id="dmIsbn" placeholder="ISBN (opcional, autocompleta)">
+      <button class="btn secondary" id="btnBuscarIsbnDeseo" type="button">Autocompletar</button>
+    </div>
+    <div class="status-msg" id="dmIsbnStatus"></div>
 
     <div class="field"><label>Título *</label><input type="text" id="dmTitulo"></div>
 

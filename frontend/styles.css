@@ -210,6 +210,14 @@ main{padding:20px 40px 60px;}
   color: #1A1A1A; /* Texto oscuro sobre fondo dorado */
 }
 
+.section-toolbar select,
+.section-toolbar input[type=text]{
+  background:var(--ink-800); border:1px solid var(--ink-700); color:var(--parchment);
+  padding:8px 10px; border-radius:8px; font-family:var(--sans); font-size:13.5px;
+}
+.section-toolbar input[type=text]{flex:1; min-width:160px;}
+.section-toolbar select:focus, .section-toolbar input:focus{outline:2px solid var(--brass); outline-offset:1px;}
+
 /* Frase del día */
 .quote-band{
   padding: 32px 40px 8px;
@@ -345,4 +353,87 @@ main{padding:20px 40px 60px;}
 }
 @media (max-width:760px){
   .section-toolbar{ padding-left:18px; padding-right:18px; }
+}
+
+/* Autocompletado buscable (modal Leídos) */
+.autocomplete{
+  position:relative;
+  display:flex;
+  align-items:center;
+}
+.autocomplete input[type=text]{
+  width:100%;
+  padding-right:36px; /* espacio para el botón × */
+}
+.ac-clear{
+  position:absolute;
+  right:8px; top:50%;
+  transform:translateY(-50%);
+  background:none; border:none;
+  color:var(--parchment-dim);
+  font-size:20px; line-height:1;
+  cursor:pointer;
+  padding:0 6px;
+  border-radius:6px;
+}
+.ac-clear:hover{color:var(--burgundy);}
+
+.ac-dropdown{
+  position:absolute;
+  top:calc(100% + 4px); left:0; right:0;
+  background:var(--ink-800);
+  border:1px solid var(--ink-700);
+  border-radius:8px;
+  max-height:280px;
+  overflow-y:auto;
+  z-index:30;
+  box-shadow:0 8px 24px rgba(0,0,0,.35);
+}
+.ac-item{
+  padding:10px 12px;
+  cursor:pointer;
+  border-bottom:1px solid var(--ink-700);
+  font-size:13.5px;
+}
+.ac-item:last-child{border-bottom:none;}
+.ac-item:hover,
+.ac-item.active{
+  background:var(--ink-700);
+}
+.ac-item .ac-title{
+  font-family:var(--serif);
+  font-weight:600;
+  color:var(--parchment);
+}
+.ac-item .ac-sub{
+  font-size:11.5px;
+  color:var(--parchment-dim);
+  margin-top:2px;
+}
+.ac-empty{
+  padding:12px;
+  font-size:12.5px;
+  color:var(--parchment-dim);
+  text-align:center;
+  font-style:italic;
+}
+
+/* Autocompletado dentro de una barra de filtros */
+.autocomplete.ac-filter{
+  min-width:160px;
+  flex:0 1 180px;
+}
+.autocomplete.ac-filter input[type=text]{
+  background:var(--ink-800);
+  border:1px solid var(--ink-700);
+  color:var(--parchment);
+  padding:8px 30px 8px 10px;
+  border-radius:8px;
+  font-family:var(--sans);
+  font-size:13.5px;
+  width:100%;
+}
+.autocomplete.ac-filter input[type=text]:focus{
+  outline:2px solid var(--brass);
+  outline-offset:1px;
 }

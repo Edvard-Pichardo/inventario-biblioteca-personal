@@ -60,6 +60,11 @@ def crear_autor(nombre: str, db: Session = Depends(get_db)):
     """Crea el autor si no existe, o devuelve el existente (evita duplicados)."""
     return crud.get_or_create_autor(db, nombre.strip())
 
+@app.post("/autores/limpiar-huerfanos")
+def limpiar_autores(db: Session = Depends(get_db)):
+    """Elimina todos los autores que ya no están asociados a ningún libro."""
+    n = crud.limpiar_autores_huerfanos(db)
+    return {"eliminados": n}
 
 @app.get("/editoriales", response_model=List[schemas.CatalogoOut])
 def listar_editoriales(db: Session = Depends(get_db)):

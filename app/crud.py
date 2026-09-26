@@ -110,6 +110,7 @@ def update_libro(db: Session, libro_id: int, data: schemas.LibroUpdate) -> Optio
         ).scalars().all()
 
     db.commit()
+    limpiar_autores_huerfanos(db)
     db.refresh(libro)
     return libro
 
@@ -120,6 +121,7 @@ def delete_libro(db: Session, libro_id: int) -> bool:
         return False
     db.delete(libro)
     db.commit()
+    limpiar_autores_huerfanos(db)  
     return True
 
 
@@ -144,6 +146,7 @@ def bulk_delete_libros(db: Session, libro_ids: List[int]) -> int:
     for libro in libros:
         db.delete(libro)
     db.commit()
+    limpiar_autores_huerfanos(db) 
     return len(libros)
 
 
@@ -233,3 +236,18 @@ def total_libros(db: Session, posesion: str = "Físico") -> int:
             select(models.Libro).where(models.Libro.posesion == posesion)
         ).unique().scalars().all()
     )
+
+def limpiar_autores_huerfanos(db: Session) -> int:
+    """Borra los autores que ya no están asociados a ningún libro."""
+    huerfanos = db.execute(
+        select(models.Autor).where(
+            ~models.Autor.id.in_(
+                select(models.libro_autor_tbl.c.autor_id)
+            )
+        )
+    ).scalars().all()
+
+    for autor in huerfanos:
+        db.delete(autor)
+    db.commit()
+    return len(huerfanos)

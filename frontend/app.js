@@ -20,7 +20,8 @@ async function api(path, opts={}) {
 }
 function esc(s){ return (s ?? "").toString().replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
 
-// --- Toasts ---
+
+// Toasts
 function toast(mensaje, tipo = "info", ms = 3500){
   const cont = document.getElementById("toastContainer");
   const el = document.createElement("div");
@@ -84,6 +85,68 @@ function pedirTexto(mensaje, valorInicial = "", opts = {}){
   return abrirDialogo({ mensaje, valor: valorInicial, ...opts });
 }
 
+
+//  Helpers de ordenación y filtros
+const ORDEN_COLLATOR = new Intl.Collator("es", { sensitivity: "base" });
+
+function ordenarLibros(lista, orden){
+  const copia = [...lista];
+  switch(orden){
+    case "fecha-desc":  return copia.sort((a,b) => (b.id || 0) - (a.id || 0));
+    case "fecha-asc":   return copia.sort((a,b) => (a.id || 0) - (b.id || 0));
+    case "titulo-asc":  return copia.sort((a,b) => ORDEN_COLLATOR.compare(a.titulo||"", b.titulo||""));
+    case "titulo-desc": return copia.sort((a,b) => ORDEN_COLLATOR.compare(b.titulo||"", a.titulo||""));
+    case "autor-asc":   return copia.sort((a,b) => {
+      const an = (a.autores||[]).map(x=>x.nombre).join(", ");
+      const bn = (b.autores||[]).map(x=>x.nombre).join(", ");
+      return ORDEN_COLLATOR.compare(an, bn);
+    });
+    default: return copia;
+  }
+}
+
+function ordenarLecturas(lista, orden){
+  const copia = [...lista];
+  switch(orden){
+    case "fecha-desc":  return copia.sort((a,b) => (b.fecha_fin||"").localeCompare(a.fecha_fin||""));
+    case "fecha-asc":   return copia.sort((a,b) => (a.fecha_fin||"").localeCompare(b.fecha_fin||""));
+    case "titulo-asc":  return copia.sort((a,b) => ORDEN_COLLATOR.compare(a.libro?.titulo||"", b.libro?.titulo||""));
+    case "titulo-desc": return copia.sort((a,b) => ORDEN_COLLATOR.compare(b.libro?.titulo||"", a.libro?.titulo||""));
+    case "calif-desc":  return copia.sort((a,b) => (b.calificacion||0) - (a.calificacion||0));
+    default: return copia;
+  }
+}
+
+function ordenarDeseos(lista, orden){
+  const copia = [...lista];
+  const pesoPrioridad = { Alta: 0, Media: 1, Baja: 2 };
+  switch(orden){
+    case "fecha-desc":  return copia.sort((a,b) => (b.agregado_en||"").localeCompare(a.agregado_en||""));
+    case "fecha-asc":   return copia.sort((a,b) => (a.agregado_en||"").localeCompare(b.agregado_en||""));
+    case "titulo-asc":  return copia.sort((a,b) => ORDEN_COLLATOR.compare(a.titulo||"", b.titulo||""));
+    case "titulo-desc": return copia.sort((a,b) => ORDEN_COLLATOR.compare(b.titulo||"", a.titulo||""));
+    case "prioridad":   return copia.sort((a,b) => (pesoPrioridad[a.prioridad]??9) - (pesoPrioridad[b.prioridad]??9));
+    default: return copia;
+  }
+}
+
+// Rellena el <select> de años en "Libros leídos" con los años detectados
+function llenarAniosLeidos(lecturas){
+  const sel = document.getElementById("lAnio");
+  const actual = sel.value;
+  const anios = [...new Set(
+    lecturas
+      .map(l => l.fecha_fin ? l.fecha_fin.slice(0,4) : null)
+      .filter(Boolean)
+  )].sort((a,b) => b.localeCompare(a)); // años descendentes
+
+  sel.innerHTML = `<option value="">Todos los años</option>` +
+    anios.map(a => `<option value="${a}">${a}</option>`).join("");
+
+  // Restaura la selección previa si sigue existiendo
+  if (actual && anios.includes(actual)) sel.value = actual;
+}
+
 // Carga inicial de catálogos
 // Trae secciones, ubicaciones, idiomas y autores una sola vez al arrancar, y
 // llena con ellos todos los <select> que los necesitan (filtros, formulario
@@ -97,7 +160,6 @@ async function cargarCatalogos(){
   llenarSelect("fSeccion", secciones, "Sección");
   llenarSelect("fUbicacion", ubicaciones, "Ubicación");
   llenarSelect("fIdioma", idiomas, "Idioma");
-  llenarSelect("fAutor", autores, "Autor");
   llenarSelect("fmSeccion", secciones, "—", false);
   llenarSelect("fmUbicacion", ubicaciones, "—", false);
   llenarSelect("fmIdioma", idiomas, "—", false);
@@ -192,6 +254,10 @@ async function cargarInventario(){
       });
     }
 
+    // Ordenamiento (siempre que haya un criterio elegido)
+    const ordenInv = document.getElementById("fOrden").value;
+    if (ordenInv) visibles = ordenarLibros(visibles, ordenInv);
+
     if (!visibles.length){
       cont.innerHTML = `<div class="empty">No hay libros que coincidan con estos filtros.</div>`;
       return;
@@ -257,6 +323,7 @@ document.getElementById("bulkEliminar").addEventListener("click", async ()=>{
   if (!await confirmar(`¿Eliminar ${seleccionados.size} libro(s)? Esta acción no se puede deshacer.`, { peligro: true, textoOk: "Eliminar" })) return;
   await api("/libros/lote/eliminar", { method:"POST", body: JSON.stringify([...seleccionados]) });
   seleccionados.clear(); actualizarBulkbar();
+  librosFisicosCache = null;
   await refrescarTodo();
 });
 document.getElementById("bulkUbicacion").addEventListener("change", async (e)=>{
@@ -265,6 +332,7 @@ document.getElementById("bulkUbicacion").addEventListener("change", async (e)=>{
     method:"POST", body: JSON.stringify([...seleccionados])
   });
   e.target.value=""; seleccionados.clear(); actualizarBulkbar();
+  librosFisicosCache = null;
   await refrescarTodo();
 });
 document.getElementById("bulkSeccion").addEventListener("change", async (e)=>{
@@ -273,18 +341,20 @@ document.getElementById("bulkSeccion").addEventListener("change", async (e)=>{
     method:"POST", body: JSON.stringify([...seleccionados])
   });
   e.target.value=""; seleccionados.clear(); actualizarBulkbar();
+  librosFisicosCache = null;
   await refrescarTodo();
 });
 
 // Filtros: eventos
 // Cualquier cambio en un filtro vuelve a pedir el inventario de inmediato,
 // así que no hace falta un botón de "buscar".
-["fSeccion","fUbicacion","fIdioma","fFormato","fAutor", "fEstado"].forEach(id=>{
+["fSeccion","fUbicacion","fIdioma","fFormato","fAutor","fEstado","fOrden"].forEach(id=>{
   document.getElementById(id).addEventListener("change", cargarInventario);
 });
 document.getElementById("fTexto").addEventListener("input", cargarInventarioDebounced);
 document.getElementById("btnLimpiar").addEventListener("click", ()=>{
- ["fTexto","fSeccion","fUbicacion","fIdioma","fFormato","fAutor","fEstado"].forEach(id=>document.getElementById(id).value="");
+ ["fTexto","fSeccion","fUbicacion","fIdioma","fFormato","fEstado","fOrden"].forEach(id=>document.getElementById(id).value="");
+  limpiarAutor();            
   filtroSeccionActiva = null;
   cargarInventario(); cargarResumen();
 });
@@ -424,6 +494,7 @@ document.getElementById("btnGuardarLibro").addEventListener("click", async ()=>{
   }
   document.getElementById("modalLibro").classList.remove("show");
   await cargarCatalogos();
+  librosFisicosCache = null;
   await refrescarTodo();
   toast(editandoId ? "Libro actualizado." : "Libro añadido.", "success");
 });
@@ -431,6 +502,7 @@ document.getElementById("btnGuardarLibro").addEventListener("click", async ()=>{
 async function eliminarLibro(id){
   if (!await confirmar("¿Eliminar este libro de tu inventario?", { peligro: true, textoOk: "Eliminar" })) return;
   await api(`/libros/${id}`, { method:"DELETE" });
+  librosFisicosCache = null;
   await refrescarTodo();
 }
 
@@ -456,12 +528,38 @@ document.querySelectorAll(".tab").forEach(tab=>{
   });
 });
 
-// Leídos
+// Libros leídos
+let librosFisicosCache = null;
+
+async function cargarLibrosFisicos(){
+  if (librosFisicosCache) return librosFisicosCache;
+  librosFisicosCache = await api("/libros?posesion=Físico");
+  return librosFisicosCache;
+}
+
 async function cargarLeidos(){
   const lecturas = await api("/lecturas");
+  llenarAniosLeidos(lecturas);
+
+  const texto = (document.getElementById("lTexto").value || "").toLowerCase().trim();
+  const formato = document.getElementById("lFormato").value;
+  const calif = document.getElementById("lCalificacion").value;
+  const anio = document.getElementById("lAnio").value;
+  const orden = document.getElementById("lOrden").value;
+
+  let visibles = lecturas;
+  if (texto) visibles = visibles.filter(l => (l.libro?.titulo || "").toLowerCase().includes(texto));
+  if (formato) visibles = visibles.filter(l => l.libro?.formato === formato);
+  if (calif) visibles = visibles.filter(l => String(l.calificacion || "") === calif);
+  if (anio) visibles = visibles.filter(l => (l.fecha_fin || "").startsWith(anio));
+  if (orden) visibles = ordenarLecturas(visibles, orden);
+
   const cont = document.getElementById("listaLeidos");
-  if (!lecturas.length){ cont.innerHTML = `<div class="empty">Aún no registras lecturas este año.</div>`; return; }
-  cont.innerHTML = lecturas.map(l => `
+  if (!visibles.length){
+    cont.innerHTML = `<div class="empty">No hay lecturas que coincidan.</div>`;
+    return;
+  }
+  cont.innerHTML = visibles.map(l => `
     <div class="book-row" style="grid-template-columns:5px 1fr 140px 110px auto;">
       <div class="spine" style="background:var(--sage)"></div>
       <div>
@@ -474,19 +572,313 @@ async function cargarLeidos(){
     </div>`).join("");
   cont.querySelectorAll("[data-del-lectura]").forEach(b=>b.addEventListener("click", async ()=>{
     await api(`/lecturas/${b.dataset.delLectura}`, { method:"DELETE" });
-    lecturasCache = null;             
-    librosLeidosSet = new Set();
+    lecturasCache = null; librosLeidosSet = new Set();
     cargarLeidos(); cargarStatsExtras();
-    if (document.getElementById("fEstado").value) cargarInventario();
-}));
+  }));
 }
 
-// Por comprar
+// Filtros de leídos
+["lTexto","lFormato","lCalificacion","lAnio","lOrden"].forEach(id=>{
+  document.getElementById(id).addEventListener("input", cargarLeidos);
+  document.getElementById(id).addEventListener("change", cargarLeidos);
+});
+document.getElementById("btnLimpiarLeidos").addEventListener("click", ()=>{
+  ["lTexto","lFormato","lCalificacion","lAnio","lOrden"].forEach(id=>document.getElementById(id).value="");
+  cargarLeidos();
+});
+
+// Export / Import de leídos
+document.getElementById("btnExportarLeidos").addEventListener("click", async () => {
+  const lecturas = await api("/lecturas");
+  const blob = new Blob([JSON.stringify(lecturas, null, 2)], { type:"application/json" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `lecturas-backup-${new Date().toISOString().slice(0,10)}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+});
+document.getElementById("btnImportarLeidos").addEventListener("click", ()=>{
+  document.getElementById("fileImportarLeidos").click();
+});
+document.getElementById("fileImportarLeidos").addEventListener("change", async (e)=>{
+  const file = e.target.files?.[0];
+  if (!file) return;
+  if (!await confirmar(`¿Importar "${file.name}"? Los libros y lecturas nuevas se añadirán.`)) return;
+  const texto = await file.text();
+  let data;
+  try { data = JSON.parse(texto); } catch { toast("JSON inválido.", "error"); return; }
+  if (!Array.isArray(data)){ toast("El JSON debe ser un array.", "error"); return; }
+  let ok = 0, fail = 0;
+  for (const item of data){
+    try {
+      // Si no trae libro_id, crea el libro primero
+      let libroId = item.libro_id;
+      if (!libroId && item.libro){
+        const l = item.libro;
+        const nuevo = await api("/libros", { method:"POST", body: JSON.stringify({
+          titulo: l.titulo, posesion:"Registrado", isbn: l.isbn || null,
+          formato: l.formato || null, paginas: l.paginas || null,
+          anio_publicacion: l.anio_publicacion || null,
+          autor_ids: (l.autores||[]).map(a=>a.id).filter(Boolean),
+        })});
+        libroId = nuevo.id;
+      }
+      if (!libroId) { fail++; continue; }
+      await api("/lecturas", { method:"POST", body: JSON.stringify({
+        libro_id: libroId,
+        fecha_inicio: item.fecha_inicio || null,
+        fecha_fin: item.fecha_fin || null,
+        calificacion: item.calificacion || null,
+        resena: item.resena || null,
+      })});
+      ok++;
+    } catch { fail++; }
+  }
+  e.target.value = "";
+  lecturasCache = null;
+  await cargarLeidos(); await cargarStatsExtras();
+  toast(`Importación: ${ok} añadidos, ${fail} fallidos.`, fail ? "error" : "success");
+});
+
+// Modal Leído: abrir / cerrar
+async function abrirModalLeido(){
+  // Limpiar
+  ["lmIsbn","lmTitulo","lmAutores","lmEditorial","lmPaginas","lmAnio","lmFechaFin","lmOpinion"].forEach(id =>
+    document.getElementById(id).value = "");
+  document.getElementById("lmFormato").value = "";
+  document.getElementById("lmCalificacion").value = "";
+  document.getElementById("lmIsbnStatus").textContent = "";
+
+  // Reset del autocompletado
+  lmLibrosDisponibles = await cargarLibrosFisicos();
+  lmBuscar.value = "";
+  lmHidden.value = "";
+  lmClear.hidden = true;
+  lmDropdown.hidden = true;
+  actualizarCamposManualesLeido(false);
+
+  document.getElementById("modalLeido").classList.add("show");
+}
+document.getElementById("btnNuevoLeido").addEventListener("click", abrirModalLeido);
+document.getElementById("btnCancelarModalLeido").addEventListener("click", ()=>{
+  document.getElementById("modalLeido").classList.remove("show");
+});
+
+//  Autocompletado de libros existentes en el modal Leído
+const lmBuscar  = document.getElementById("lmBuscarLibro");
+const lmDropdown = document.getElementById("lmDropdown");
+const lmHidden  = document.getElementById("lmLibroExistente");
+const lmClear   = document.getElementById("lmClearLibro");
+
+let lmLibrosDisponibles = [];
+let lmIndexActivo = -1;
+
+function abrirAutocompleteLeido(){
+  // Si ya hay un libro seleccionado, limpiar al enfocar
+  if (lmHidden.value){
+    lmBuscar.value = "";
+    lmHidden.value = "";
+    actualizarCamposManualesLeido(false);
+    lmClear.hidden = true;
+  }
+  if (!lmLibrosDisponibles.length){
+    lmDropdown.innerHTML = `<div class="ac-empty">No tienes libros físicos registrados todavía.</div>`;
+    lmDropdown.hidden = false;
+    return;
+  }
+  renderDropdownLeido(lmLibrosDisponibles);
+}
+
+function renderDropdownLeido(lista, vacio = "Sin coincidencias"){
+  if (!lista.length){
+    lmDropdown.innerHTML = `<div class="ac-empty">${vacio}</div>`;
+    lmDropdown.hidden = false;
+    lmIndexActivo = -1;
+    return;
+  }
+
+  const MAX = 8;                               
+  const visibles = lista.slice(0, MAX);
+  const restantes = lista.length - visibles.length;
+
+  lmDropdown.innerHTML = visibles.map((l, i) => `
+      <div class="ac-item" data-id="${l.id}" data-index="${i}">
+        <div class="ac-title">${esc(l.titulo)}</div>
+        <div class="ac-sub">${esc((l.autores||[]).map(a=>a.nombre).join(", ") || "Autor desconocido")}</div>
+      </div>`).join("") +
+    (restantes > 0
+      ? `<div class="ac-empty">Y ${restantes} más… sigue escribiendo para filtrar.</div>`
+      : "");
+
+  lmDropdown.hidden = false;
+  lmIndexActivo = -1;
+  lmDropdown.querySelectorAll(".ac-item").forEach(item=>{
+    item.addEventListener("click", ()=>{
+      seleccionarLibroLeido(Number(item.dataset.id));
+    });
+  });
+}
+
+function seleccionarLibroLeido(id){
+  const libro = lmLibrosDisponibles.find(l => l.id === id);
+  if (!libro) return;
+  lmHidden.value = String(id);
+  lmBuscar.value = libro.titulo;
+  lmDropdown.hidden = true;
+  lmClear.hidden = false;
+  actualizarCamposManualesLeido(true);
+}
+
+function actualizarCamposManualesLeido(usarExistente){
+  document.getElementById("lmIsbnRow").style.display    = usarExistente ? "none" : "flex";
+  document.getElementById("lmTituloField").style.display = usarExistente ? "none" : "";
+  document.getElementById("lmAutoresField").style.display = usarExistente ? "none" : "grid";
+  document.getElementById("lmFormatoField").style.display = usarExistente ? "none" : "grid";
+}
+
+lmBuscar.addEventListener("focus", abrirAutocompleteLeido);
+
+lmBuscar.addEventListener("input", ()=>{
+  lmHidden.value = "";      // al escribir, invalida cualquier selección previa
+  lmClear.hidden = true;
+  actualizarCamposManualesLeido(false);
+
+  const q = lmBuscar.value.toLowerCase().trim();
+  if (!q){
+    renderDropdownLeido(lmLibrosDisponibles);
+    return;
+  }
+  const filtrados = lmLibrosDisponibles.filter(l => {
+    const t = (l.titulo || "").toLowerCase();
+    const a = (l.autores||[]).map(x=>x.nombre).join(" ").toLowerCase();
+    return t.includes(q) || a.includes(q);
+  });
+  renderDropdownLeido(filtrados, "Ningún libro coincide con la búsqueda");
+});
+
+// Navegación por teclado (↑ ↓ Enter Esc)
+lmBuscar.addEventListener("keydown", (e)=>{
+  const items = [...lmDropdown.querySelectorAll(".ac-item")];
+  if (lmDropdown.hidden || !items.length){
+    if (e.key === "Escape") lmDropdown.hidden = true;
+    return;
+  }
+  if (e.key === "ArrowDown"){
+    e.preventDefault();
+    lmIndexActivo = (lmIndexActivo + 1) % items.length;
+    items.forEach((it,i)=>it.classList.toggle("active", i === lmIndexActivo));
+    items[lmIndexActivo].scrollIntoView({block:"nearest"});
+  } else if (e.key === "ArrowUp"){
+    e.preventDefault();
+    lmIndexActivo = (lmIndexActivo - 1 + items.length) % items.length;
+    items.forEach((it,i)=>it.classList.toggle("active", i === lmIndexActivo));
+    items[lmIndexActivo].scrollIntoView({block:"nearest"});
+  } else if (e.key === "Enter"){
+    e.preventDefault();
+    if (lmIndexActivo >= 0){
+      seleccionarLibroLeido(Number(items[lmIndexActivo].dataset.id));
+    } else if (items.length === 1){
+      seleccionarLibroLeido(Number(items[0].dataset.id));
+    }
+  } else if (e.key === "Escape"){
+    lmDropdown.hidden = true;
+  }
+});
+
+// Cerrar dropdown al hacer clic fuera
+document.addEventListener("click", (e)=>{
+  if (!document.getElementById("lmAutocomplete").contains(e.target)){
+    lmDropdown.hidden = true;
+  }
+});
+
+// Botón × para deseleccionar
+lmClear.addEventListener("click", ()=>{
+  lmHidden.value = "";
+  lmBuscar.value = "";
+  lmClear.hidden = true;
+  actualizarCamposManualesLeido(false);
+  lmBuscar.focus();
+});
+
+// ISBN dentro del modal de leído
+document.getElementById("btnBuscarIsbnLeido").addEventListener("click", async ()=>{
+  const isbn = document.getElementById("lmIsbn").value.trim();
+  const status = document.getElementById("lmIsbnStatus");
+  if (!isbn){ status.textContent = "Escribe un ISBN primero."; return; }
+  status.textContent = "Buscando…";
+  try{
+    const d = await api("/isbn/" + encodeURIComponent(isbn));
+    if (!d.encontrado){ status.textContent = "No se encontró ese ISBN."; return; }
+    if (d.titulo) document.getElementById("lmTitulo").value = d.titulo;
+    if (d.autores?.length) document.getElementById("lmAutores").value = d.autores.join(", ");
+    if (d.editorial) document.getElementById("lmEditorial").value = d.editorial;
+    if (d.anio_publicacion) document.getElementById("lmAnio").value = d.anio_publicacion;
+    if (d.paginas) document.getElementById("lmPaginas").value = d.paginas;
+    status.textContent = `Datos completados${d.fuente ? ` (vía ${d.fuente})` : ""}.`;
+  } catch(e){ status.textContent = "Error: " + (e.message || e); }
+});
+
+// Guardar leído
+document.getElementById("btnGuardarLeido").addEventListener("click", async ()=>{
+  const libroExistenteId = document.getElementById("lmLibroExistente").value;
+  const fechaFin = document.getElementById("lmFechaFin").value || new Date().toISOString().slice(0,10);
+  const calificacion = Number(document.getElementById("lmCalificacion").value) || null;
+  const resena = document.getElementById("lmOpinion").value.trim() || null;
+
+  try{
+    let libroId = libroExistenteId ? Number(libroExistenteId) : null;
+
+    if (!libroId){
+      const titulo = document.getElementById("lmTitulo").value.trim();
+      if (!titulo){ toast("El título es obligatorio.", "error"); return; }
+      const libro = await api("/libros", { method:"POST", body: JSON.stringify({
+        titulo,
+        posesion: "Registrado",
+        isbn: document.getElementById("lmIsbn").value.trim() || null,
+        formato: document.getElementById("lmFormato").value || null,
+        paginas: Number(document.getElementById("lmPaginas").value) || null,
+        anio_publicacion: Number(document.getElementById("lmAnio").value) || null,
+        autor_ids: await idsAutoresPorNombre(document.getElementById("lmAutores").value),
+      })});
+      libroId = libro.id;
+    }
+
+    await api("/lecturas", { method:"POST", body: JSON.stringify({
+      libro_id: libroId, fecha_fin: fechaFin, calificacion, resena
+    })});
+
+    document.getElementById("modalLeido").classList.remove("show");
+    lecturasCache = null; librosLeidosSet = new Set();
+    await cargarCatalogos();
+    await cargarLeidos(); await cargarStatsExtras();
+    toast("Libro leído agregado.", "success");
+  } catch(e){
+    toast("Error al guardar: " + (e.message || e), "error");
+  }
+});
+
+//  Lista de deseos
 async function cargarDeseos(){
   const deseos = await api("/deseos?comprado=false");
+  const texto = (document.getElementById("dTexto").value || "").toLowerCase().trim();
+  const prioridad = document.getElementById("dPrioridad").value;
+  const formato = document.getElementById("dFormato").value;
+  const orden = document.getElementById("dOrden").value;
+
+  let visibles = deseos;
+  if (texto) visibles = visibles.filter(d => (d.titulo || "").toLowerCase().includes(texto));
+  if (prioridad) visibles = visibles.filter(d => d.prioridad === prioridad);
+  if (formato) visibles = visibles.filter(d => d.formato_deseado === formato);
+  if (orden) visibles = ordenarDeseos(visibles, orden);
+
   const cont = document.getElementById("listaDeseos");
-  if (!deseos.length){ cont.innerHTML = `<div class="empty">Tu lista de compras está vacía.</div>`; return; }
-  cont.innerHTML = deseos.map(d => `
+  if (!visibles.length){
+    cont.innerHTML = `<div class="empty">Tu lista de compras está vacía o no hay coincidencias.</div>`;
+    return;
+  }
+  cont.innerHTML = visibles.map(d => `
     <div class="book-row" style="grid-template-columns:5px 1fr 90px 100px auto;">
       <div class="spine" style="background:var(--burgundy)"></div>
       <div>
@@ -503,239 +895,218 @@ async function cargarDeseos(){
   }));
 }
 
-// Arranque
-// Carga catálogos e inventario en cuanto la página abre; si la API no está
-// corriendo, lo avisa en vez de dejar la pantalla en blanco.
-async function refrescarTodo(){
-  await Promise.all([cargarInventario(), cargarResumen(), cargarStatsExtras()]);
-}
-(async function init(){
-  try{
-    await cargarCatalogos();
-    await refrescarTodo();
-  } catch(e){
-    document.getElementById("listaInventario").innerHTML =
-      `<div class="empty">No se pudo conectar con la API en ${API}.<br>Verifica que esté corriendo (uvicorn app.main:app --reload).</div>`;
-  }
-})();
-
-// Lógica del Cambio de Tema
-(function() {
-  const themeToggle = document.getElementById('theme-toggle');
-  const htmlElement = document.documentElement;
-  const currentTheme = localStorage.getItem('theme');
-
-  // Aplicar el tema guardado o la preferencia del sistema
-  if (currentTheme) {
-    htmlElement.setAttribute('data-theme', currentTheme);
-  } else if (window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches) {
-    htmlElement.setAttribute('data-theme', 'light');
-  } else {
-    htmlElement.setAttribute('data-theme', 'dark'); // Por defecto
-  }
-
-  // Función para actualizar el icono del botón
-  function updateToggleIcon(theme) {
-    themeToggle.innerHTML = theme === 'light' ? '🌙' : '☀️';
-  }
-  updateToggleIcon(htmlElement.getAttribute('data-theme'));
-
-  // Manejador del clic
-  themeToggle.addEventListener('click', () => {
-    const newTheme = htmlElement.getAttribute('data-theme') === 'light' ? 'dark' : 'light';
-    htmlElement.setAttribute('data-theme', newTheme);
-    localStorage.setItem('theme', newTheme); // Guardar preferencia
-    updateToggleIcon(newTheme);
-  });
-})();
-
-// Frase del día
-(function(){
-  const elTexto = document.getElementById("dailyQuote");
-  const elAutor = document.getElementById("dailyQuoteAuthor");
-  if (!elTexto || !elAutor) return;
-
-  // Semilla basada en el día del año → misma frase durante todo el día
-  const ahora = new Date();
-  const inicio = new Date(ahora.getFullYear(), 0, 0);
-  const dia = Math.floor((ahora - inicio) / 86400000);
-  const frase = FRASES[Math.floor(Math.random() * FRASES.length)];
-
-  elTexto.textContent = frase.texto;
-  elAutor.textContent = "— " + frase.autor;
-})();
-
-// Saludo personalizado
-(function(){
-  const CLAVE = 'nombreUsuario';
-  const POR_DEFECTO = 'Edvard Pichardo';
-
-  const badge = document.getElementById('welcomeBadge');
-  const nombreEl = document.getElementById('welcomeName');
-  if (!badge || !nombreEl) return;
-
-  // Cargar nombre guardado (o el de por defecto)
-  let nombre = localStorage.getItem(CLAVE) || POR_DEFECTO;
-  nombreEl.textContent = nombre;
-
-  // Editar al hacer clic
-  badge.addEventListener('click', async () => {
-    const nuevo = await pedirTexto("¿Cómo te llamas?", nombre, { textoOk: "Guardar" });
-    if (nuevo === null) return;          // canceló
-    const limpio = nuevo.trim();
-    if (!limpio) return;                 // vacío, no cambiamos nada
-    nombre = limpio;
-    localStorage.setItem(CLAVE, nombre);
-    nombreEl.textContent = nombre;
-  });
-})();
-
-
-// Export / Import de inventario
-document.getElementById("btnExportar").addEventListener("click", async () => {
-  const libros = await api("/libros?posesion=Físico"); // o sin filtro si quieres todo
-  const blob = new Blob([JSON.stringify(libros, null, 2)], { type: "application/json" });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = `biblioteca-backup-${new Date().toISOString().slice(0,10)}.json`;
-  a.click();
-  URL.revokeObjectURL(url);
+["dTexto","dPrioridad","dFormato","dOrden"].forEach(id=>{
+  document.getElementById(id).addEventListener("input", cargarDeseos);
+  document.getElementById(id).addEventListener("change", cargarDeseos);
+});
+document.getElementById("btnLimpiarDeseos").addEventListener("click", ()=>{
+  ["dTexto","dPrioridad","dFormato","dOrden"].forEach(id=>document.getElementById(id).value="");
+  cargarDeseos();
 });
 
-document.getElementById("btnImportar").addEventListener("click", () => {
-  document.getElementById("fileImportar").click();
-});
-
-document.getElementById("fileImportar").addEventListener("change", async (e) => {
-  const file = e.target.files?.[0];
-  if (!file) return;
-  if (!await confirmar(`¿Importar "${file.name}"? Los libros nuevos se añadirán; no se borra nada existente.`)) return;
-
-  const texto = await file.text();
-  let libros;
-  try { libros = JSON.parse(texto); }
-  catch { toast("El archivo no es un JSON válido.", "error"); return; }
-  if (!Array.isArray(libros)) { toast("El JSON debe ser un array de libros.", "error"); return; }
-
-  let ok = 0, fail = 0;
-  for (const l of libros){
-    try{
-      await api("/libros", { method:"POST", body: JSON.stringify({
-        titulo: l.titulo,
-        isbn: l.isbn || null,
-        posesion: l.posesion || "Físico",
-        formato: l.formato || null,
-        seccion_id: l.seccion_id || null,
-        ubicacion_id: l.ubicacion_id || null,
-        idioma_id: l.idioma_id || null,
-        condicion: l.condicion || null,
-        anio_publicacion: l.anio_publicacion || null,
-        paginas: l.paginas || null,
-        notas: l.notas || null,
-        autor_id: (l.autores || []).map(a => a.id).filter(Boolean),
-      })});
-      ok++;
-    } catch { fail++; }
-  }
-  e.target.value = ""; // permite reimportar el mismo archivo
-  await cargarCatalogos();
-  await refrescarTodo();
-  toast(`Importación terminada: ${ok} añadidos, ${fail} fallidos.`, fail ? "error" : "success");
-});
-
-
-//  Agregar libro leído
-document.getElementById("btnNuevoLeido").addEventListener("click", () => {
-  ["lmTitulo","lmAutores","lmEditorial","lmPaginas","lmAnio","lmFechaFin"].forEach(id =>
+// Modal Deseo
+document.getElementById("btnNuevoDeseo").addEventListener("click", ()=>{
+  ["dmIsbn","dmTitulo","dmAutores","dmEditorial","dmPaginas","dmPrecio","dmMotivo"].forEach(id =>
     document.getElementById(id).value = "");
-  document.getElementById("lmFormato").value = "";
-  document.getElementById("lmCalificacion").value = "";
-  document.getElementById("modalLeido").classList.add("show");
-});
-
-document.getElementById("btnCancelarModalLeido").addEventListener("click", () => {
-  document.getElementById("modalLeido").classList.remove("show");
-});
-
-document.getElementById("btnGuardarLeido").addEventListener("click", async () => {
-  const titulo = document.getElementById("lmTitulo").value.trim();
-  if (!titulo){ toast("El título es obligatorio.", "error"); return; }
-
-  try {
-    // Crear libro con posesion='Registrado'. NO aparece en inventario
-    const libro = await api("/libros", {
-      method: "POST",
-      body: JSON.stringify({
-        titulo,
-        posesion: "Registrado",
-        formato: document.getElementById("lmFormato").value || null,
-        paginas: Number(document.getElementById("lmPaginas").value) || null,
-        anio_publicacion: Number(document.getElementById("lmAnio").value) || null,
-        autor_ids: await idsAutoresPorNombre(document.getElementById("lmAutores").value),
-      })
-    });
-
-    // Crear la lectura
-    await api("/lecturas", {
-      method: "POST",
-      body: JSON.stringify({
-        libro_id: libro.id,
-        fecha_fin: document.getElementById("lmFechaFin").value || new Date().toISOString().slice(0,10),
-        calificacion: Number(document.getElementById("lmCalificacion").value) || null,
-      })
-    });
-
-    document.getElementById("modalLeido").classList.remove("show");
-    lecturasCache = null; librosLeidosSet = new Set();
-    await cargarCatalogos();
-    await cargarLeidos();
-    await cargarStatsExtras();
-    toast("Libro leído agregado.", "success");
-  } catch(e){
-    toast("Error al guardar: " + (e.message || e), "error");
-  }
-});
-
-
-//  Agregar a la lista de deseos
-document.getElementById("btnNuevoDeseo").addEventListener("click", () => {
-  ["dmTitulo","dmAutores","dmEditorial","dmPaginas","dmPrecio","dmMotivo"].forEach(id =>
-    document.getElementById(id).value = "");
+  document.getElementById("dmIsbnStatus").textContent = "";
   document.getElementById("dmFormato").value = "Cualquiera";
   document.getElementById("dmPrioridad").value = "Media";
   document.getElementById("modalDeseo").classList.add("show");
 });
-
-document.getElementById("btnCancelarModalDeseo").addEventListener("click", () => {
+document.getElementById("btnCancelarModalDeseo").addEventListener("click", ()=>{
   document.getElementById("modalDeseo").classList.remove("show");
 });
 
-document.getElementById("btnGuardarDeseo").addEventListener("click", async () => {
+// ISBN dentro del modal de deseo
+document.getElementById("btnBuscarIsbnDeseo").addEventListener("click", async ()=>{
+  const isbn = document.getElementById("dmIsbn").value.trim();
+  const status = document.getElementById("dmIsbnStatus");
+  if (!isbn){ status.textContent = "Escribe un ISBN primero."; return; }
+  status.textContent = "Buscando…";
+  try{
+    const d = await api("/isbn/" + encodeURIComponent(isbn));
+    if (!d.encontrado){ status.textContent = "No se encontró ese ISBN."; return; }
+    if (d.titulo) document.getElementById("dmTitulo").value = d.titulo;
+    if (d.autores?.length) document.getElementById("dmAutores").value = d.autores.join(", ");
+    if (d.editorial) document.getElementById("dmEditorial").value = d.editorial;
+    if (d.paginas) document.getElementById("dmPaginas").value = d.paginas;
+    status.textContent = `Datos completados${d.fuente ? ` (vía ${d.fuente})` : ""}.`;
+  } catch(e){ status.textContent = "Error: " + (e.message || e); }
+});
+
+document.getElementById("btnGuardarDeseo").addEventListener("click", async ()=>{
   const titulo = document.getElementById("dmTitulo").value.trim();
   if (!titulo){ toast("El título es obligatorio.", "error"); return; }
-
-  try {
-    await api("/deseos", {
-      method: "POST",
-      body: JSON.stringify({
-        titulo,
-        autor_texto: document.getElementById("dmAutores").value.trim() || null,
-        editorial_texto: document.getElementById("dmEditorial").value.trim() || null,
-        paginas: Number(document.getElementById("dmPaginas").value) || null,
-        formato_deseado: document.getElementById("dmFormato").value,
-        prioridad: document.getElementById("dmPrioridad").value,
-        precio_estimado: Number(document.getElementById("dmPrecio").value) || null,
-        motivo: document.getElementById("dmMotivo").value.trim() || null,
-        comprado: false,
-      })
-    });
-
+  try{
+    await api("/deseos", { method:"POST", body: JSON.stringify({
+      titulo,
+      autor_texto: document.getElementById("dmAutores").value.trim() || null,
+      editorial_texto: document.getElementById("dmEditorial").value.trim() || null,
+      paginas: Number(document.getElementById("dmPaginas").value) || null,
+      isbn: document.getElementById("dmIsbn").value.trim() || null,
+      formato_deseado: document.getElementById("dmFormato").value,
+      prioridad: document.getElementById("dmPrioridad").value,
+      precio_estimado: Number(document.getElementById("dmPrecio").value) || null,
+      motivo: document.getElementById("dmMotivo").value.trim() || null,
+      comprado: false,
+    })});
     document.getElementById("modalDeseo").classList.remove("show");
-    await cargarDeseos();
-    await cargarStatsExtras();
+    await cargarDeseos(); await cargarStatsExtras();
     toast("Añadido a la lista de deseos.", "success");
   } catch(e){
     toast("Error al guardar: " + (e.message || e), "error");
   }
 });
+
+//  Cerrar modales con click afuera
+["modalLeido","modalDeseo"].forEach(id=>{
+  const bg = document.getElementById(id);
+  bg.addEventListener("click", (e)=>{ if (e.target === bg) bg.classList.remove("show"); });
+  document.addEventListener("keydown", (e)=>{
+    if (e.key === "Escape" && bg.classList.contains("show")) bg.classList.remove("show");
+  });
+});
+
+//  Frase del día
+(function(){
+  const elTexto = document.getElementById("dailyQuote");
+  const elAutor = document.getElementById("dailyQuoteAuthor");
+  if (!elTexto || !elAutor) return;
+
+  const ahora = new Date();
+  const inicio = new Date(ahora.getFullYear(), 0, 0);
+  const dia = Math.floor((ahora - inicio) / 86400000);
+  const frase = FRASES[dia % FRASES.length];
+
+  elTexto.textContent = frase.texto;
+  elAutor.textContent = "— " + frase.autor;
+})();
+
+//  Arranque
+async function refrescarTodo(){
+  await Promise.all([cargarInventario(), cargarResumen(), cargarStatsExtras()]);
+}
+
+(async function init(){
+  try{
+    await cargarCatalogos();
+    await refrescarTodo();
+  } catch(e){
+    console.error("Error en init:", e);
+    document.getElementById("listaInventario").innerHTML =
+      `<div class="empty">No se pudo conectar con la API en ${API}.<br>Verifica que esté corriendo (uvicorn app.main:app --reload).</div>`;
+  }
+})();
+
+
+//  Autocompletado para el filtro de Autor
+const fAutorBuscar   = document.getElementById("fAutorBuscar");
+const fAutorDropdown = document.getElementById("fAutorDropdown");
+const fAutorHidden   = document.getElementById("fAutor");
+const fAutorClear    = document.getElementById("fAutorClear");
+
+let fAutorIndex = -1;
+
+function renderDropdownAutor(lista, vacio = "Sin coincidencias"){
+  if (!lista.length){
+    fAutorDropdown.innerHTML = `<div class="ac-empty">${vacio}</div>`;
+    fAutorDropdown.hidden = false;
+    fAutorIndex = -1;
+    return;
+  }
+
+  const MAX = 8;
+  const visibles = lista.slice(0, MAX);
+  const restantes = lista.length - visibles.length;
+
+  fAutorDropdown.innerHTML = visibles.map((a, i) => `
+      <div class="ac-item" data-id="${a.id}" data-index="${i}">
+        <div class="ac-title">${esc(a.nombre)}</div>
+      </div>`).join("") +
+    (restantes > 0
+      ? `<div class="ac-empty">Y ${restantes} más… sigue escribiendo para filtrar.</div>`
+      : "");
+
+  fAutorDropdown.hidden = false;
+  fAutorIndex = -1;
+  fAutorDropdown.querySelectorAll(".ac-item").forEach(item=>{
+    item.addEventListener("click", ()=>{
+      seleccionarAutor(Number(item.dataset.id));
+    });
+  });
+}
+
+function seleccionarAutor(id){
+  const autor = catalogos.autores.find(a => a.id === id);
+  if (!autor) return;
+  fAutorHidden.value = String(id);
+  fAutorBuscar.value = autor.nombre;
+  fAutorDropdown.hidden = true;
+  fAutorClear.hidden = false;
+  cargarInventario(); // refresca con el filtro aplicado
+}
+
+function limpiarAutor(){
+  fAutorHidden.value = "";
+  fAutorBuscar.value = "";
+  fAutorClear.hidden = true;
+  cargarInventario();
+}
+
+// Abrir el dropdown al enfocar
+fAutorBuscar.addEventListener("focus", ()=>{
+  if (fAutorHidden.value) return; // ya hay algo seleccionado; no reabrir
+  const q = fAutorBuscar.value.toLowerCase().trim();
+  if (!q){ renderDropdownAutor(catalogos.autores); return; }
+  const filtrados = catalogos.autores.filter(a => a.nombre.toLowerCase().includes(q));
+  renderDropdownAutor(filtrados);
+});
+
+// Filtrar al escribir
+fAutorBuscar.addEventListener("input", ()=>{
+  fAutorHidden.value = "";
+  fAutorClear.hidden = true;
+  const q = fAutorBuscar.value.toLowerCase().trim();
+  if (!q){
+    renderDropdownAutor(catalogos.autores);
+    return;
+  }
+  const filtrados = catalogos.autores.filter(a => a.nombre.toLowerCase().includes(q));
+  renderDropdownAutor(filtrados, "Ningún autor coincide");
+});
+
+// Navegación por teclado
+fAutorBuscar.addEventListener("keydown", (e)=>{
+  const items = [...fAutorDropdown.querySelectorAll(".ac-item")];
+  if (fAutorDropdown.hidden || !items.length){
+    if (e.key === "Escape") fAutorDropdown.hidden = true;
+    return;
+  }
+  if (e.key === "ArrowDown"){
+    e.preventDefault();
+    fAutorIndex = (fAutorIndex + 1) % items.length;
+    items.forEach((it,i)=>it.classList.toggle("active", i === fAutorIndex));
+    items[fAutorIndex].scrollIntoView({block:"nearest"});
+  } else if (e.key === "ArrowUp"){
+    e.preventDefault();
+    fAutorIndex = (fAutorIndex - 1 + items.length) % items.length;
+    items.forEach((it,i)=>it.classList.toggle("active", i === fAutorIndex));
+    items[fAutorIndex].scrollIntoView({block:"nearest"});
+  } else if (e.key === "Enter"){
+    e.preventDefault();
+    if (fAutorIndex >= 0) seleccionarAutor(Number(items[fAutorIndex].dataset.id));
+    else if (items.length === 1) seleccionarAutor(Number(items[0].dataset.id));
+  } else if (e.key === "Escape"){
+    fAutorDropdown.hidden = true;
+  }
+});
+
+// Cerrar al hacer clic fuera
+document.addEventListener("click", (e)=>{
+  if (!document.getElementById("fAutorWrap").contains(e.target)){
+    fAutorDropdown.hidden = true;
+  }
+});
+
+// Botón 
+fAutorClear.addEventListener("click", limpiarAutor);
