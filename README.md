@@ -223,6 +223,15 @@ inventario-biblioteca-personal/
 ```
 ---
 
+## Problemas conocidos
+
+- Al momento de guardar un libro, no se guardan las editoriales asociadas. 
+- Tampoco hay un límite de visualización al momento de cargar los libros lo que puede causar problemas cuando ya se tienen demasiados registros.
+- Algunas portadas no se cargan.
+- Algunos ISBN no los encuentra el modelo de busqueda, hay que solucionarlo.
+
+---
+
 ## Autor y licencia
 
 **Cristian Eduardo Pichardo Rico**
